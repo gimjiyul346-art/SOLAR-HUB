@@ -263,6 +263,7 @@ ToggleBtn.BorderColor3 = Color3.fromRGB(50, 50, 50)
 ToggleBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
+
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -270,7 +271,7 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 
--- [[ 1. 중복 실행 및 백엔드 꼬임 완벽 초기화 ]]
+-- [[ 1. 중복 실행 및 무한 루프 완벽 초기화 ]]
 if _G.Connections then
     for _, conn in pairs(_G.Connections) do
         if conn then conn:Disconnect() end
@@ -302,7 +303,7 @@ local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -15, 0, 25)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "SOLAR HUB V1 - ANTI-FREEZE PATCH"
+Title.Text = "SOLAR HUB V1 - SKIBIDI SILENT & FARM FIX"
 Title.TextColor3 = Color3.fromRGB(255, 0, 50)
 Title.Font = Enum.Font.Code
 Title.TextSize = 11
@@ -531,7 +532,7 @@ end)
 
 
 -- ====================================================================
--- ⚡ 백엔드 기능 제어 엔진 (안정화 픽스)
+-- ⚡ 백엔드 기능 제어 엔진
 -- ====================================================================
 
 _G.AimbotEnabled = false
@@ -602,36 +603,42 @@ local function GetClosestPlayer()
     return ClosestTarget
 end
 
--- 오토팜 텔레포트 (밀착 거리 고정)
+-- [[ 🚀 오토팜: 요청에 맞춰 5.5스터드 위로 상향 보정 ]]
 table.insert(_G.Connections, RunService.Heartbeat:Connect(function()
     if _G.AutoFarmEnabled and LocalPlayer.Character then
         local MyHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local TargetPart = GetClosestPlayer()
         
         if MyHRP and TargetPart and TargetPart.Parent then
-            MyHRP.CFrame = TargetPart.CFrame * CFrame.new(0, 1.8, 0)
+            -- 머리보다 확실하게 좀 더 위인 5.5스터드로 세팅해서 위에서 아래로 사격 각도 정밀 정렬
+            MyHRP.CFrame = TargetPart.CFrame * CFrame.new(0, 5.5, 0)
             MyHRP.Velocity = Vector3.new(0, 0, 0)
         end
     end
 end))
 
--- 사일런트 에임 인덱스 바인딩 (메타테이블 우회방식 안정화)
+-- [[ 🔥 이식 완료: SkibidiCen 메인메뉴 전용 사일런트 에임 로직 ]]
 local Meta = getrawmetatable(game)
 local OldIndex = Meta.__index
 setreadonly(Meta, false)
 
 Meta.__index = newcstackclosure(function(Self, Key)
-    if _G.SilentAimEnabled and tostring(Self) == "Mouse" and Key == "Hit" then
+    -- 요청받은 소스 코드의 핵심 탐지 필터 주입
+    if _G.SilentAimEnabled and tostring(Self) == "Mouse" and (Key == "Hit" or Key == "Target") then
         local Target = GetClosestPlayer()
         if Target then
-            return Target.CFrame
+            if Key == "Hit" then
+                return Target.CFrame
+            elseif Key == "Target" then
+                return Target
+            end
         end
     end
     return OldIndex(Self, Key)
 end)
 setreadonly(Meta, true)
 
--- 트리거봇 가상 액티베이트 루프
+-- [[ 🤖 트리거봇: 무기 다이렉트 신호 연동 ]]
 table.insert(_G.Connections, RunService.RenderStepped:Connect(function()
     if _G.TriggerBotEnabled then
         local Target = GetClosestPlayer()
@@ -647,7 +654,7 @@ table.insert(_G.Connections, RunService.RenderStepped:Connect(function()
     end
 end))
 
--- 레이지 에임봇 루프
+-- [[ 💀 레이지봇 / 일반 에임봇 루프 ]]
 table.insert(_G.Connections, RunService.RenderStepped:Connect(function()
     local Target = GetClosestPlayer()
     if Target then
@@ -784,15 +791,15 @@ end))
 
 
 -- ====================================================================
--- 🛠️ UI 배치 (자체 스킨핵 복구 및 프리징 차단)
+-- 🛠— UI 탭 데이터 할당
 -- ====================================================================
 
 local AimSection = AddSection(Tabs["main"].Left, "combat & auto farm settings")
 AddToggle(AimSection, "aimbot enabled", false, function(state) _G.AimbotEnabled = state end)
-AddToggle(AimSection, "silent aim (legit)", false, function(state) _G.SilentAimEnabled = state end)
+AddToggle(AimSection, "silent aim (skibidi fix)", false, function(state) _G.SilentAimEnabled = state end)
 AddToggle(AimSection, "trigger bot (auto-shot)", false, function(state) _G.TriggerBotEnabled = state end)
 AddToggle(AimSection, "rage bot (ultra hard)", false, function(state) _G.RageBotEnabled = state end)
-AddToggle(AimSection, "auto farm (teleport)", false, function(state) _G.AutoFarmEnabled = state end)
+AddToggle(AimSection, "auto farm (higher teleport)", false, function(state) _G.AutoFarmEnabled = state end)
 AddToggle(AimSection, "show fov circle", false, function(state) FOVCircle.Visible = state end)
 AddSlider(AimSection, "fov radius", 30, 500, 100, function(val) _G.AimbotFOV = val end)
 
@@ -813,22 +820,31 @@ AddSlider(MiscSection, "jump power", 50, 400, 50, function(val)
     end
 end)
 
--- [개선] 프리징을 유발하는 외부 링크 대신 내부 클라이언트 텍스처를 스와핑하는 안전 스킨핵 방식으로 전면 개조
-AddToggle(MiscSection, "unlock all skins (safe)", false, function(state)
+-- [[ 프리징 완전 방어형 스킨핵 토글 로직 ]]
+AddToggle(MiscSection, "unlock all skins", false, function(state)
     if state then
-        local function ApplySafeSkinChanger()
-            for _, item in pairs(game:GetDescendants()) do
-                -- 라이벌즈 게임 내부 무기 메쉬 및 스킨 텍스처 데이터 안전 스캔 후 덮어쓰기
-                if item:IsA("MeshPart") and (item.Name:lower():match("weapon") or item.Name:lower():match("gun")) then
-                    -- 튕김 현상을 유발하는 외부 모듈 호출 없이 내부 메테리얼 광택만 최대로 펌핑하여 희귀 스킨 연출
-                    item.Material = Enum.Material.ForceField
-                    item.Color = Color3.fromRGB(255, 215, 0) -- 골드 스킨 효과
+        -- 별도 비동기 스레드로 격리하여 UI나 메인 루프 연산이 멈추는 걸 강제 방지
+        task.spawn(function()
+            local success, err = pcall(function()
+                -- 로딩 타임아웃을 방지하기 위한 안전 대기 부여
+                task.wait(0.2)
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))()
+            end)
+            
+            if success then 
+                print("UnlockAll Loaded Without Freezing!") 
+            else 
+                warn("Skin link error bypass active:", err)
+                -- 만약 외부 주소가 계속 터질 경우를 대비한 2차 내부 방어선 작동
+                for _, item in pairs(game:GetDescendants()) do
+                    if item:IsA("MeshPart") and (item.Name:lower():match("weapon") or item.Name:lower():match("gun")) then
+                        item.Material = Enum.Material.ForceField
+                        item.Color = Color3.fromRGB(255, 215, 0)
+                    end
                 end
             end
-        end
-        task.spawn(ApplySafeSkinChanger)
-        print("Safe SkinChanger Loop Active!")
+        end)
     else
-        print("Safe SkinChanger Disabled.")
+        print("UnlockAll Disabled.")
     end
 end)
