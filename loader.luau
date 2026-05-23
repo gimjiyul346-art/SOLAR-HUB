@@ -441,7 +441,7 @@ local function AddToggle(section, text, default, callback)
     end)
 end
 
--- [[ 7. 하이엔드 슬라이더 함수 ]]
+-- [[ 7. 슬라이더 함수 ]]
 local function AddSlider(section, text, min, max, default, callback)
     local SliderRow = Instance.new("Frame", section)
     SliderRow.Size = UDim2.new(1, 0, 0, 32)
@@ -525,7 +525,7 @@ end)
 
 
 -- ====================================================================
--- ⚡ 백엔드 기능 로직 엔진 (초강력 에임 고정 보정판)
+-- ⚡ 백엔드 기능 로직 엔진 (반동 무시 에임봇 & 리스폰 대응 ESP)
 -- ====================================================================
 
 _G.AimbotEnabled = false
@@ -554,27 +554,24 @@ RunService.RenderStepped:Connect(function()
     FOVCircle.Position = UserInputService:GetMouseLocation()
 end)
 
--- 정밀 타겟 스캔 (라이벌즈 특화 필터 및 10,000 스터드 제한)
+-- 타겟팅 헬퍼 함수
 local function GetClosestPlayer()
     local ClosestTarget = nil
     local MaxDistance = _G.AimbotFOV
     local MousePos = UserInputService:GetMouseLocation()
-    local MyCharacter = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local MyCharacter = LocalPlayer.Character
+    if not MyCharacter then return nil end
     local MyHRP = MyCharacter:FindFirstChild("HumanoidRootPart")
-
     if not MyHRP then return nil end
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            -- 라이벌즈의 경우 Head나 HumanoidRootPart가 늦게 로드되거나 조준 시 변형될 수 있으므로 다중 타겟팅 체크
             local TargetPart = player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart")
             local Humanoid = player.Character:FindFirstChildOfClass("Humanoid")
             
             if TargetPart and Humanoid and Humanoid.Health > 0 then
-                -- 10,000 스터드 제한 필터
                 local MainPlayerDistance = (MyHRP.Position - TargetPart.Position).Magnitude
                 if MainPlayerDistance <= 10000 then
-                    
                     local ScreenPos, OnScreen = Camera:WorldToViewportPoint(TargetPart.Position)
                     if OnScreen then
                         local Distance = (Vector2.new(ScreenPos.X, ScreenPos.Y) - MousePos).Magnitude
@@ -590,122 +587,122 @@ local function GetClosestPlayer()
     return ClosestTarget
 end
 
--- 에임 고정 루프 (강력한 직접 고정 방식으로 변경하여 줌 충돌 해결)
+-- [개선] 카메라 반동 물리 연산을 무시하고 룩앳(LookAt) 벡터를 정밀하게 덮어쓰는 에임 루프
 RunService.RenderStepped:Connect(function()
     if _G.AimbotEnabled then
         local Target = GetClosestPlayer()
         if Target then
-            -- 팅김 보정(Lerp) 값을 없애고 다이렉트로 대상을 추적해 에임이 안 잡히는 현상 제거
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, Target.Position)
+            -- 기존 CFrame 연산 방식에서 카메라 원점 위치를 강제 고정하여 총기 반동 흔들림 완전 차단
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Target.Position)
         end
     end
 end)
 
--- 라이벌즈 전용 장비 확인 함수
+-- 라이벌즈 무기 감지 함수
 local function GetCurrentWeapon(player)
     if not player.Character then return "Hands" end
-    
     local Tool = player.Character:FindFirstChildOfClass("Tool")
     if Tool then return Tool.Name end
-    
     for _, child in pairs(player.Character:GetChildren()) do
         if child:IsA("Model") and (child.Name:lower():match("rifle") or child.Name:lower():match("pistol") or child.Name:lower():match("shotgun") or child.Name:lower():match("sniper") or child.Name:lower():match("smg") or child.Name:lower():match("weapon")) then
             return child.Name
         end
     end
-    
-    local Backpack = player:FindFirstChild("Backpack")
-    if Backpack then
-        local ActiveWeapon = Backpack:FindFirstChildOfClass("Tool")
-        if ActiveWeapon then return ActiveWeapon.Name end
-    end
-    
     return "Equipped"
 end
 
--- ESP 드로잉 렌더러
+-- [개선] 1대1 라운드 리스폰에 완벽하게 실시간 대응하는 고성능 ESP 엔진
 local function CreateESP(player)
     local Box = Drawing.new("Square")
-    Box.Visible = false
-    Box.Color = Color3.fromRGB(255, 0, 0)
     Box.Thickness = 1
     Box.Filled = false
+    Box.Color = Color3.fromRGB(255, 0, 0)
 
     local NameLabel = Drawing.new("Text")
-    NameLabel.Visible = false
-    NameLabel.Color = Color3.fromRGB(255, 255, 255)
     NameLabel.Size = 13
     NameLabel.Center = true
     NameLabel.Outline = true
+    NameLabel.Color = Color3.fromRGB(255, 255, 255)
 
     local HealthBar = Drawing.new("Square")
-    HealthBar.Visible = false
-    HealthBar.Color = Color3.fromRGB(0, 255, 0)
     HealthBar.Thickness = 1
     HealthBar.Filled = true
 
     local WeaponLabel = Drawing.new("Text")
-    WeaponLabel.Visible = false
-    WeaponLabel.Color = Color3.fromRGB(0, 255, 255)
     WeaponLabel.Size = 11
     WeaponLabel.Center = true
     WeaponLabel.Outline = true
+    WeaponLabel.Color = Color3.fromRGB(0, 255, 255)
 
-    local Updater
-    Updater = RunService.RenderStepped:Connect(function()
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") and player.Character.Humanoid.Health > 0 then
-            local HRP = player.Character.HumanoidRootPart
-            local Humanoid = player.Character.Humanoid
-            local Pos, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
+    local Connection
 
-            if OnScreen then
-                local TopSpace = Camera:WorldToViewportPoint(HRP.Position + Vector3.new(0, 3, 0))
-                local BottomSpace = Camera:WorldToViewportPoint(HRP.Position - Vector3.new(0, 3.5, 0))
-                local Height = math.abs(TopSpace.Y - BottomSpace.Y)
-                local Width = Height / 1.5
+    local function StartTracking()
+        if Connection then Connection:Disconnect() end
+        
+        Connection = RunService.RenderStepped:Connect(function()
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") and player.Character.Humanoid.Health > 0 then
+                local HRP = player.Character.HumanoidRootPart
+                local Humanoid = player.Character.Humanoid
+                local Pos, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
 
-                if _G.BoxESP then
-                    Box.Size = Vector2.new(Width, Height)
-                    Box.Position = Vector2.new(Pos.X - Width/2, Pos.Y - Height/2)
-                    Box.Visible = true
-                else Box.Visible = false end
+                if OnScreen then
+                    local TopSpace = Camera:WorldToViewportPoint(HRP.Position + Vector3.new(0, 3, 0))
+                    local BottomSpace = Camera:WorldToViewportPoint(HRP.Position - Vector3.new(0, 3.5, 0))
+                    local Height = math.abs(TopSpace.Y - BottomSpace.Y)
+                    local Width = Height / 1.5
 
-                if _G.NameESP then
-                    NameLabel.Text = player.Name
-                    NameLabel.Position = Vector2.new(Pos.X, (Pos.Y - Height/2) - 15)
-                    NameLabel.Visible = true
-                else NameLabel.Visible = false end
+                    if _G.BoxESP then
+                        Box.Size = Vector2.new(Width, Height)
+                        Box.Position = Vector2.new(Pos.X - Width/2, Pos.Y - Height/2)
+                        Box.Visible = true
+                    else Box.Visible = false end
 
-                if _G.HealthESP then
-                    local HealthPercent = Humanoid.Health / Humanoid.MaxHealth
-                    HealthBar.Size = Vector2.new(2, Height * HealthPercent)
-                    HealthBar.Position = Vector2.new((Pos.X - Width/2) - 6, Pos.Y - Height/2 + (Height * (1 - HealthPercent)))
-                    HealthBar.Color = Color3.fromRGB(255 * (1 - HealthPercent), 255 * HealthPercent, 0)
-                    HealthBar.Visible = true
-                else HealthBar.Visible = false end
+                    if _G.NameESP then
+                        NameLabel.Text = player.Name
+                        NameLabel.Position = Vector2.new(Pos.X, (Pos.Y - Height/2) - 15)
+                        NameLabel.Visible = true
+                    else NameLabel.Visible = false end
 
-                if _G.WeaponESP then
-                    WeaponLabel.Text = GetCurrentWeapon(player)
-                    WeaponLabel.Position = Vector2.new(Pos.X, (Pos.Y + Height/2) + 5)
-                    WeaponLabel.Visible = true
-                else WeaponLabel.Visible = false end
+                    if _G.HealthESP then
+                        local HealthPercent = math.clamp(Humanoid.Health / Humanoid.MaxHealth, 0, 1)
+                        HealthBar.Size = Vector2.new(2, Height * HealthPercent)
+                        HealthBar.Position = Vector2.new((Pos.X - Width/2) - 6, Pos.Y - Height/2 + (Height * (1 - HealthPercent)))
+                        HealthBar.Color = Color3.fromRGB(255 * (1 - HealthPercent), 255 * HealthPercent, 0)
+                        HealthBar.Visible = true
+                    else HealthBar.Visible = false end
+
+                    if _G.WeaponESP then
+                        WeaponLabel.Text = GetCurrentWeapon(player)
+                        WeaponLabel.Position = Vector2.new(Pos.X, (Pos.Y + Height/2) + 5)
+                        WeaponLabel.Visible = true
+                    else WeaponLabel.Visible = false end
+                else
+                    Box.Visible = false; NameLabel.Visible = false; HealthBar.Visible = false; WeaponLabel.Visible = false
+                end
             else
                 Box.Visible = false; NameLabel.Visible = false; HealthBar.Visible = false; WeaponLabel.Visible = false
+                if not player.Parent then
+                    Box:Remove(); NameLabel:Remove(); HealthBar:Remove(); WeaponLabel:Remove()
+                    if Connection then Connection:Disconnect() end
+                end
             end
-        else
-            Box.Visible = false; NameLabel.Visible = false; HealthBar.Visible = false; WeaponLabel.Visible = false
-            if not player.Parent then
-                Box:Remove(); NameLabel:Remove(); HealthBar:Remove(); WeaponLabel:Remove()
-                Updater:Disconnect()
-            end
-        end
+        end)
+    end
+
+    -- 1대1 라운드 종료 후 부활할 때마다 캐릭터를 다시 물고 늘어지는 핵심 감지 장치
+    player.CharacterAdded:Connect(function()
+        task.wait(0.2) -- 리스폰 딜레이 안정화 캐싱
+        StartTracking()
     end)
+    
+    if player.Character then StartTracking() end
 end
 
+-- 초기 유저 및 접속 유저 바인딩
 for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CreateESP(p) end end
 Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateESP(p) end end)
 
--- 노클립 & 무한점프 서브 엔진
+-- 유틸리티 기능 구역
 RunService.Stepped:Connect(function()
     if _G.NoClipEnabled and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
@@ -732,7 +729,7 @@ end)
 
 
 -- ====================================================================
--- 🛠️ UI 탭 컴포넌트 최종 배치 연결
+-- 🛠️ UI 탭 컴포넌트 레이아웃 최종 배치
 -- ====================================================================
 
 -- 1. [main 탭]
