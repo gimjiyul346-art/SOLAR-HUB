@@ -817,3 +817,4 @@ AddToggle(MiscSection, "unlock all skins", false, function(state)
         print("UnlockAll Disabled.")
     end
 end)
+
