@@ -275,7 +275,7 @@ end)
 -- 여기 아래에서부터 탭 마운트와 백엔드 기능 코드를 이어 붙여나가면 됩니다.
 -- ====================================================================
 -- ====================================================================
--- ⚡ 백엔드 기능 코어 & 변수 설정
+-- ⚡ 백엔드 기능 코어 & 기능 제어 변수
 -- ====================================================================
 
 _G.AimbotEnabled = false
@@ -283,10 +283,17 @@ _G.SilentAimEnabled = false
 _G.AimbotFOV = 100
 
 _G.FlyEnabled = false
+_G.NoClipEnabled = false
 _G.InfiniteJump = false
 _G.SkinChangerEnabled = false
 local CurrentJumpPower = 50
 local FlySpeed = 50
+
+-- ESP 제어 토글 변수
+_G.BoxESP = false
+_G.NameESP = false
+_G.WeaponESP = false
+_G.HealthESP = false
 
 -- FOV 시각화 원 생성
 local FOVCircle = Drawing.new("Circle")
@@ -360,7 +367,6 @@ table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
         local HRP = LocalPlayer.Character.HumanoidRootPart
         local MoveDirection = Vector3.new(0, 0, 0)
         
-        -- 키 입력 벡터 연산
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then MoveDirection = MoveDirection + Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then MoveDirection = MoveDirection - Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then MoveDirection = MoveDirection - Camera.CFrame.RightVector end
@@ -376,16 +382,16 @@ table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
     end
 end))
 
--- 플라이 및 이동 시 벽 끼임 방지 (노클립 패시브)
+-- [[ 🚫 4. 노클립 및 플라이 충돌 방지 패시브 ]]
 table.insert(_G.SolarConnections, RunService.Stepped:Connect(function()
-    if _G.FlyEnabled and LocalPlayer.Character then
+    if (_G.NoClipEnabled or _G.FlyEnabled) and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
 end))
 
--- [[ 🦘 4. 무한 점프 핸들러 ]]
+-- [[ 🦘 5. 무한 점프 핸들러 ]]
 table.insert(_G.SolarConnections, UserInputService.JumpRequest:Connect(function()
     if _G.InfiniteJump and LocalPlayer.Character then
         local Hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -396,43 +402,138 @@ table.insert(_G.SolarConnections, UserInputService.JumpRequest:Connect(function(
     end
 end))
 
--- 캐릭터 리스폰 시 점프력 유지 설정
 table.insert(_G.SolarConnections, LocalPlayer.CharacterAdded:Connect(function(Char)
     local Hum = Char:WaitForChild("Humanoid")
     Hum.UseJumpPower = true
     Hum.JumpPower = CurrentJumpPower
 end))
 
--- [[ 🌟 5. 안전 격리형 골드 스킨 체인저 ]]
+-- [[ 🌟 6. 안전 격리형 골드 스킨 체인저 ]]
 table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
     if _G.SkinChangerEnabled and LocalPlayer.Character then
         for _, item in pairs(LocalPlayer.Character:GetDescendants()) do
             if item:IsA("MeshPart") and (item.Name:lower():match("weapon") or item.Name:lower():match("gun") or item.Parent:IsA("Tool")) then
                 if item.Material ~= Enum.Material.ForceField then
                     item.Material = Enum.Material.ForceField
-                    item.Color = Color3.fromRGB(255, 215, 0) -- 고급 골드 텍스처 광택
+                    item.Color = Color3.fromRGB(255, 215, 0)
                 end
             end
         end
     end
 end))
 
+-- [[ 👁️‍🗨️ 7. 고성능 드로잉 ESP 엔진 (박스, 이름, 무기, 체력바) ]]
+local function GetCurrentWeapon(player)
+    if not player.Character then return "None" end
+    local Tool = player.Character:FindFirstChildOfClass("Tool")
+    if Tool then return Tool.Name end
+    return "Hands"
+end
+
+local function CreateESP(player)
+    local Box = Drawing.new("Square")
+    Box.Thickness = 1
+    Box.Filled = false
+    Box.Color = Color3.fromRGB(255, 0, 50)
+
+    local NameLabel = Drawing.new("Text")
+    NameLabel.Size = 13
+    NameLabel.Center = true
+    NameLabel.Outline = true
+    NameLabel.Color = Color3.fromRGB(255, 255, 255)
+
+    local WeaponLabel = Drawing.new("Text")
+    WeaponLabel.Size = 11
+    WeaponLabel.Center = true
+    WeaponLabel.Outline = true
+    WeaponLabel.Color = Color3.fromRGB(0, 255, 255)
+
+    local HealthBar = Drawing.new("Square")
+    HealthBar.Thickness = 1
+    HealthBar.Filled = true
+
+    local ESPConnection
+
+    local function TrackESP()
+        ESPConnection = RunService.RenderStepped:Connect(function()
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") and player.Character.Humanoid.Health > 0 then
+                local HRP = player.Character.HumanoidRootPart
+                local Hum = player.Character.Humanoid
+                local Pos, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
+
+                if OnScreen then
+                    local TopSpace = Camera:WorldToViewportPoint(HRP.Position + Vector3.new(0, 3, 0))
+                    local BottomSpace = Camera:WorldToViewportPoint(HRP.Position - Vector3.new(0, 3.5, 0))
+                    local Height = math.abs(TopSpace.Y - BottomSpace.Y)
+                    local Width = Height / 1.5
+
+                    -- [1] Box ESP
+                    if _G.BoxESP then
+                        Box.Size = Vector2.new(Width, Height)
+                        Box.Position = Vector2.new(Pos.X - Width/2, Pos.Y - Height/2)
+                        Box.Visible = true
+                    else Box.Visible = false end
+
+                    -- [2] Name ESP (머리 위)
+                    if _G.NameESP then
+                        NameLabel.Text = player.Name
+                        NameLabel.Position = Vector2.new(Pos.X, (Pos.Y - Height/2) - 15)
+                        NameLabel.Visible = true
+                    else NameLabel.Visible = false end
+
+                    -- [3] Weapon ESP (발 아래)
+                    if _G.WeaponESP then
+                        WeaponLabel.Text = GetCurrentWeapon(player)
+                        WeaponLabel.Position = Vector2.new(Pos.X, (Pos.Y + Height/2) + 5)
+                        WeaponLabel.Visible = true
+                    else WeaponLabel.Visible = false end
+
+                    -- [4] Health ESP (왼쪽 레이아웃 막대)
+                    if _G.HealthESP then
+                        local HealthPercent = math.clamp(Hum.Health / Hum.MaxHealth, 0, 1)
+                        HealthBar.Size = Vector2.new(2, Height * HealthPercent)
+                        HealthBar.Position = Vector2.new((Pos.X - Width/2) - 6, Pos.Y - Height/2 + (Height * (1 - HealthPercent)))
+                        HealthBar.Color = Color3.fromRGB(255 * (1 - HealthPercent), 255 * HealthPercent, 0)
+                        HealthBar.Visible = true
+                    else HealthBar.Visible = false end
+                else
+                    Box.Visible = false; NameLabel.Visible = false; WeaponLabel.Visible = false; HealthBar.Visible = false
+                end
+            else
+                Box.Visible = false; NameLabel.Visible = false; WeaponLabel.Visible = false; HealthBar.Visible = false
+                if not player.Parent then
+                    Box:Remove(); NameLabel:Remove(); WeaponLabel:Remove(); HealthBar:Remove()
+                    if ESPConnection then ESPConnection:Disconnect() end
+                end
+            end
+        end)
+        table.insert(_G.SolarConnections, ESPConnection)
+    end
+
+    player.CharacterAdded:Connect(function() task.wait(0.3); TrackESP() end)
+    if player.Character then TrackESP() end
+end
+
+for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CreateESP(p) end end
+table.insert(_G.SolarConnections, Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateESP(p) end end))
+
 
 -- ====================================================================
 -- 🛠️ UI 컴포넌트에 기능 마운트 (연결 작업)
 -- ====================================================================
 
--- 1. Main 탭 컴포넌트 장착 (왼쪽 구획)
+-- 1. Main 탭 컴포넌트 장착
 local CombatSection = AddSection(Tabs["main"].Left, "combat options")
 AddToggle(CombatSection, "aimbot enabled", false, function(state) _G.AimbotEnabled = state end)
 AddToggle(CombatSection, "silent aim (aimbot link)", false, function(state) _G.SilentAimEnabled = state end)
 AddToggle(CombatSection, "show fov circle", false, function(state) FOVCircle.Visible = state end)
 AddSlider(CombatSection, "fov radius", 30, 500, 100, function(val) _G.AimbotFOV = val end)
 
--- 2. World 탭 컴포넌트 장착 (왼쪽 구획)
+-- 2. World 탭 컴포넌트 장착
 local WorldSection = AddSection(Tabs["world"].Left, "movement & skins")
 AddToggle(WorldSection, "fly hack", false, function(state) _G.FlyEnabled = state end)
 AddSlider(WorldSection, "fly speed", 20, 200, 50, function(val) FlySpeed = val end)
+AddToggle(WorldSection, "noclip", false, function(state) _G.NoClipEnabled = state end)
 AddToggle(WorldSection, "infinite jump", false, function(state) _G.InfiniteJump = state end)
 AddSlider(WorldSection, "jump power", 50, 400, 50, function(val)
     CurrentJumpPower = val
@@ -442,5 +543,12 @@ AddSlider(WorldSection, "jump power", 50, 400, 50, function(val)
     end
 end)
 AddToggle(WorldSection, "gold skin changer", false, function(state) _G.SkinChangerEnabled = state end)
+
+-- 3. ESP 탭 컴포넌트 장착
+local VisualSection = AddSection(Tabs["esp"].Left, "esp visual overlay")
+AddToggle(VisualSection, "box esp", false, function(state) _G.BoxESP = state end)
+AddToggle(VisualSection, "name esp (top)", false, function(state) _G.NameESP = state end)
+AddToggle(VisualSection, "weapon esp (bottom)", false, function(state) _G.WeaponESP = state end)
+AddToggle(VisualSection, "health esp (bar)", false, function(state) _G.HealthESP = state end)
 
 print("SOLAR HUB Backend Engine Successfully Injected!")
