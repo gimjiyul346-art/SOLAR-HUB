@@ -1,106 +1,161 @@
 local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
 
--- [[ 1. 중복 실행 방지 ]]
--- 코드를 여러 번 실행해도 화면이 지저분해지지 않게 기존 창을 깔끔하게 청소해줘.
+-- [[ 1. 기존 잔상 깔끔하게 청소 ]]
 for _, v in pairs(CoreGui:GetChildren()) do
-    if v.Name == "SOLAR_REBOOT" then 
+    if v.Name == "SOLAR_INJECTOR_STYLE" then 
         v:Destroy() 
     end
 end
 
--- [[ 2. 최상위 스크린 생성 ]]
+-- [[ 2. 최상위 스크린 Gui 생성 ]]
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "SOLAR_REBOOT"
+ScreenGui.Name = "SOLAR_INJECTOR_STYLE"
 ScreenGui.DisplayOrder = 999
 
--- [[ 3. 메인 프레임 (요청한 직사각형 검은색 네모 창) ]]
+-- [[ 3. 메인 프레임 (사진의 Unnamed Enhancements 스타일) ]]
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 450, 0, 320) -- 가로가 조금 더 긴 완벽한 직사각형
-MainFrame.Position = UDim2.new(0.5, -225, 0.5, -160) -- 화면 정확히 정중앙 배치
-MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10) -- 순수한 무광 검은색
-MainFrame.BorderSizePixel = 0 -- 테두리 선 없이 깔끔하게 처리
-MainFrame.Visible = true -- 처음 실행 시 켜진 상태
+MainFrame.Size = UDim2.new(0, 500, 0, 380) -- 가로형 정밀 사이즈
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -190) -- 정중앙 배치
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18) -- 아주 어두운 차콜 블랙
+MainFrame.BorderSizePixel = 1
+MainFrame.BorderColor3 = Color3.fromRGB(45, 45, 45) -- 얇은 외곽 경계선
+MainFrame.Visible = true
 MainFrame.Active = true
-MainFrame.Draggable = true -- 모바일 화면에서 손가락으로 드래그 이동 가능!
+MainFrame.Draggable = true -- 모바일 드래그 이동 가능
 
--- 타이틀 텍스트 (창 윗부분에 SOLAR HUB V1 표시)
+-- 타이틀 바 네임 (맨 위 얇은 텍스트)
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, -20, 0, 40)
-Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Size = UDim2.new(1, -15, 0, 25)
+Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "SOLAR HUB V1"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
+Title.Text = "SOLAR HUB V1 - discord.gg/solar" -- 인젝터 감성 타이틀
+Title.TextColor3 = Color3.fromRGB(180, 180, 180)
+Title.Font = Enum.Font.Code
+Title.TextSize = 12
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- [[ 4. 기능들을 담을 스크롤 구역 (나중에 기능 추가할 공간) ]]
-local Container = Instance.new("ScrollingFrame", MainFrame)
-Container.Size = UDim2.new(1, -30, 1, -60)
-Container.Position = UDim2.new(0, 15, 0, 45)
+-- [[ 4. 탭 가로 메뉴 바 (사진의 main, world, esp ... 부분) ]]
+local TabBar = Instance.new("Frame", MainFrame)
+TabBar.Size = UDim2.new(1, -20, 0, 25)
+TabBar.Position = UDim2.new(0, 10, 0, 25)
+TabBar.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+TabBar.BorderSizePixel = 1
+TabBar.BorderColor3 = Color3.fromRGB(40, 40, 40)
+
+local TabLayout = Instance.new("UIListLayout", TabBar)
+TabBar.LayoutOrder = 1
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabLayout.Padding = UDim.new(0, 2)
+
+-- 탭 버튼을 쉽게 만드는 함수
+local function CreateTab(name)
+    local Tab = Instance.new("TextButton", TabBar)
+    Tab.Size = UDim2.new(0, 60, 1, 0)
+    Tab.BackgroundTransparency = 1
+    Tab.Text = name
+    Tab.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Tab.Font = Enum.Font.Code
+    Tab.TextSize = 12
+end
+
+-- 사진에 있던 감성 탭들 그대로 박아넣기
+CreateTab("main")
+CreateTab("world")
+CreateTab("esp")
+CreateTab("visuals")
+CreateTab("misc")
+
+-- [[ 5. 기능들이 담길 하단 컨텐츠 박스 (파란색 테두리 구역 분할) ]]
+local ContentFrame = Instance.new("Frame", MainFrame)
+ContentFrame.Size = UDim2.new(1, -20, 1, -65)
+ContentFrame.Position = UDim2.new(0, 10, 0, 55)
+ContentFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+ContentFrame.BorderSizePixel = 1
+ContentFrame.BorderColor3 = Color3.fromRGB(0, 85, 255) -- ⭐새 사진 속 핵심인 '파란색 선 테두리' 연출!
+
+-- 내부 스크롤 영역
+local Container = Instance.new("ScrollingFrame", ContentFrame)
+Container.Size = UDim2.new(1, -10, 1, -10)
+Container.Position = UDim2.new(0, 5, 0, 5)
 Container.BackgroundTransparency = 1
 Container.BorderSizePixel = 0
 Container.ScrollBarThickness = 3
-Container.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
+Container.ScrollBarImageColor3 = Color3.fromRGB(0, 85, 255)
 
-local Layout = Instance.new("UIListLayout", Container)
-Layout.Padding = UDim.new(0, 6) -- 기능 버튼들 사이의 자잘한 간격 조절
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
+local ListLayout = Instance.new("UIListLayout", Container)
+ListLayout.Padding = UDim.new(0, 6)
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- [[ 5. ⚡ 핵심: 열고 닫는 "UI" 토글 버튼 ]]
+-- [[ 6. ⚡ "UI" 버튼 하나로 열고 닫는 토글 연동 ]]
 local ToggleBtn = Instance.new("TextButton", ScreenGui)
-ToggleBtn.Name = "ToggleButton"
-ToggleBtn.Size = UDim2.new(0, 50, 0, 30) -- 조그맣고 깔끔한 크기
-ToggleBtn.Position = UDim2.new(0, 15, 0, 15) -- 모바일 화면 좌측 상단 터치하기 편한 곳
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- 버튼도 검은색 계열
-ToggleBtn.Text = "UI" -- 네가 요청한 버튼 글자
+ToggleBtn.Name = "UIToggleButton"
+ToggleBtn.Size = UDim2.new(0, 45, 0, 30)
+ToggleBtn.Position = UDim2.new(0, 15, 0, 15)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ToggleBtn.Text = "UI"
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextSize = 14
+ToggleBtn.TextSize = 13
 ToggleBtn.BorderSizePixel = 1
-ToggleBtn.BorderColor3 = Color3.fromRGB(50, 50, 50) -- 약간의 경계선 유전
+ToggleBtn.BorderColor3 = Color3.fromRGB(60, 60, 60)
 
--- UI 버튼 클릭 시 메인 창 ON / OFF 스위칭 완벽 작동
 ToggleBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
--- [[ 6. 나중에 버튼을 쉽게 추가하기 위한 마법의 함수 ]]
--- 네가 이 아래에 AddFunction("기능이름", function() ... end) 만 써주면 버튼이 자동으로 생성돼!
-local function AddFunction(name, callback)
-    local FuncBtn = Instance.new("TextButton", Container)
-    FuncBtn.Size = UDim2.new(1, 0, 0, 35)
-    FuncBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25) -- 약간 밝은 검은색 버튼
-    FuncBtn.BorderSizePixel = 0
-    FuncBtn.Text = name
-    FuncBtn.TextColor3 = Color3.fromRGB(230, 230, 230)
-    FuncBtn.Font = Enum.Font.Gotham
-    FuncBtn.TextSize = 13
+-- [[ 7. 정통 핵 스타일 체크박스(토글) 생성 함수 ]]
+local function AddHackToggle(text, default, callback)
+    local Row = Instance.new("Frame", Container)
+    Row.Size = UDim2.new(1, 0, 0, 25)
+    Row.BackgroundTransparency = 1
     
-    FuncBtn.MouseButton1Click:Connect(callback)
+    local Box = Instance.new("TextButton", Row)
+    Box.Size = UDim2.new(0, 14, 0, 14)
+    Box.Position = UDim2.new(0, 5, 0.5, -7)
+    Box.BorderSizePixel = 1
+    Box.BorderColor3 = Color3.fromRGB(70, 70, 70)
+    Box.Text = ""
+    -- 켜져 있으면 파란색 채우기, 꺼져 있으면 검은색
+    Box.BackgroundColor3 = default and Color3.fromRGB(0, 85, 255) or Color3.fromRGB(15, 15, 15)
     
-    -- 버튼 모서리 아주 살짝만 둥글게 해서 세련미 추가
-    local Corner = Instance.new("UICorner", FuncBtn)
-    Corner.CornerRadius = UDim.new(0, 4)
+    local Label = Instance.new("TextLabel", Row)
+    Label.Size = UDim2.new(1, -30, 1, 0)
+    Label.Position = UDim2.new(0, 25, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(180, 180, 180)
+    Label.Font = Enum.Font.Code
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local state = default
+    Box.MouseButton1Click:Connect(function()
+        state = not state
+        Box.BackgroundColor3 = state and Color3.fromRGB(0, 85, 255) or Color3.fromRGB(15, 15, 15)
+        callback(state)
+    end)
 end
 
 
 -- ====================================================================
--- 💡 기능 코드는 이 아래줄부터 AddFunction을 사용해서 편하게 이어 붙이세요!
+-- 💡 기능 코드는 이 아래줄부터 마음껏 추가하시면 됩니다!
 -- ====================================================================
 
--- 1. 예시용 기능 (테스트용)
-AddFunction("Test Function", function()
-    print("SOLAR HUB 기능 정상 작동 중!")
+-- 1. 사일런트 에임 (새 사진에 있던 기능 명칭 그대로 뼈대 조립)
+AddHackToggle("silent aim", false, function(state)
+    _G.SilentAim = state
+    print("Silent Aim:", state)
 end)
 
--- 2. 아까 네가 성공했던 하늘 파괴 코드를 여기 쏙 집어넣으면 끝!
-AddFunction("Remove Server Sky", function()
-    local Lighting = game:GetService("Lighting")
-    for _, v in pairs(Lighting:GetChildren()) do
-        if v:IsA("Sky") then v:Destroy() end
+-- 2. 아까 네가 성공시킨 하늘 파괴 코드 연동 버튼
+AddHackToggle("remove server sky", false, function(state)
+    _G.RemoveSky = state
+    if state then
+        local Lighting = game:GetService("Lighting")
+        for _, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("Sky") or v:IsA("Atmosphere") then v:Destroy() end
+        end
     end
-    print("서버 하늘 파괴 완료!")
 end)
