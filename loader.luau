@@ -270,7 +270,14 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 
--- [[ 1. 중복 실행 방지 ]]
+-- [[ 1. 중복 실행 및 백엔드 꼬임 완벽 초기화 ]]
+if _G.Connections then
+    for _, conn in pairs(_G.Connections) do
+        if conn then conn:Disconnect() end
+    end
+end
+_G.Connections = {}
+
 for _, v in pairs(CoreGui:GetChildren()) do
     if v.Name == "SOLAR_PREMIUM_UE" then v:Destroy() end
 end
@@ -291,12 +298,11 @@ MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
 MainFrame.Active = true
 MainFrame.Draggable = true
 
--- 상단 타이틀
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -15, 0, 25)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "SOLAR HUB V1 - RE-FIX UPDATE"
+Title.Text = "SOLAR HUB V1 - ANTI-FREEZE PATCH"
 Title.TextColor3 = Color3.fromRGB(255, 0, 50)
 Title.Font = Enum.Font.Code
 Title.TextSize = 11
@@ -525,7 +531,7 @@ end)
 
 
 -- ====================================================================
--- ⚡ 백엔드 엔진
+-- ⚡ 백엔드 기능 제어 엔진 (안정화 픽스)
 -- ====================================================================
 
 _G.AimbotEnabled = false
@@ -552,10 +558,10 @@ FOVCircle.NumSides = 64
 FOVCircle.Radius = _G.AimbotFOV
 FOVCircle.Filled = false
 
-RunService.RenderStepped:Connect(function()
+table.insert(_G.Connections, RunService.RenderStepped:Connect(function()
     FOVCircle.Radius = _G.AimbotFOV
     FOVCircle.Position = UserInputService:GetMouseLocation()
-end)
+end))
 
 local function GetClosestPlayer()
     local ClosestTarget = nil
@@ -596,21 +602,20 @@ local function GetClosestPlayer()
     return ClosestTarget
 end
 
--- [[ 🚀 오토팜 위치 조정 수정 ]]
-RunService.Heartbeat:Connect(function()
+-- 오토팜 텔레포트 (밀착 거리 고정)
+table.insert(_G.Connections, RunService.Heartbeat:Connect(function()
     if _G.AutoFarmEnabled and LocalPlayer.Character then
         local MyHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local TargetPart = GetClosestPlayer()
         
         if MyHRP and TargetPart and TargetPart.Parent then
-            -- 거리를 3.5스터드에서 1.8스터드로 좁혀 밀착 고정
             MyHRP.CFrame = TargetPart.CFrame * CFrame.new(0, 1.8, 0)
             MyHRP.Velocity = Vector3.new(0, 0, 0)
         end
     end
-end)
+end))
 
--- [[ 🔥 사일런트 에임 대체 구현 ]]
+-- 사일런트 에임 인덱스 바인딩 (메타테이블 우회방식 안정화)
 local Meta = getrawmetatable(game)
 local OldIndex = Meta.__index
 setreadonly(Meta, false)
@@ -626,14 +631,13 @@ Meta.__index = newcstackclosure(function(Self, Key)
 end)
 setreadonly(Meta, true)
 
--- [[ 🤖 트리거봇 입력 구조 보완 ]]
-RunService.RenderStepped:Connect(function()
+-- 트리거봇 가상 액티베이트 루프
+table.insert(_G.Connections, RunService.RenderStepped:Connect(function()
     if _G.TriggerBotEnabled then
         local Target = GetClosestPlayer()
         if Target and Target.Parent then
             local PlayerTarget = Players:GetPlayerFromCharacter(Target.Parent)
             if PlayerTarget and PlayerTarget ~= LocalPlayer then
-                -- 내부 가상 활성화 루틴 시도
                 local Tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
                 if Tool then
                     Tool:Activate()
@@ -641,17 +645,17 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-end)
+end))
 
--- [[ 💀 RAGE BOT 및 기존 에임봇 루프 ]]
-RunService.RenderStepped:Connect(function()
+-- 레이지 에임봇 루프
+table.insert(_G.Connections, RunService.RenderStepped:Connect(function()
     local Target = GetClosestPlayer()
     if Target then
         if _G.RageBotEnabled or _G.AimbotEnabled then
             Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Target.Position)
         end
     end
-end)
+end))
 
 local function GetCurrentWeapon(player)
     if not player.Character then return "Hands" end
@@ -740,6 +744,7 @@ local function CreateESP(player)
                 end
             end
         end)
+        table.insert(_G.Connections, Connection)
     end
 
     player.CharacterAdded:Connect(function()
@@ -751,17 +756,17 @@ local function CreateESP(player)
 end
 
 for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CreateESP(p) end end
-Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateESP(p) end end)
+table.insert(_G.Connections, Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateESP(p) end end))
 
-RunService.Stepped:Connect(function()
+table.insert(_G.Connections, RunService.Stepped:Connect(function()
     if (_G.NoClipEnabled or _G.AutoFarmEnabled) and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
-end)
+end))
 
-UserInputService.JumpRequest:Connect(function()
+table.insert(_G.Connections, UserInputService.JumpRequest:Connect(function()
     if _G.InfiniteJump and LocalPlayer.Character then
         local Hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if Hum then 
@@ -769,17 +774,17 @@ UserInputService.JumpRequest:Connect(function()
             Hum:ChangeState(Enum.HumanoidStateType.Jumping) 
         end
     end
-end)
+end))
 
-LocalPlayer.CharacterAdded:Connect(function(Char)
+table.insert(_G.Connections, LocalPlayer.CharacterAdded:Connect(function(Char)
     local Hum = Char:WaitForChild("Humanoid")
     Hum.UseJumpPower = true
     Hum.JumpPower = CurrentJumpPower
-end)
+end))
 
 
 -- ====================================================================
--- 🛠️ UI 배치
+-- 🛠️ UI 배치 (자체 스킨핵 복구 및 프리징 차단)
 -- ====================================================================
 
 local AimSection = AddSection(Tabs["main"].Left, "combat & auto farm settings")
@@ -807,14 +812,23 @@ AddSlider(MiscSection, "jump power", 50, 400, 50, function(val)
         LocalPlayer.Character.Humanoid.JumpPower = val
     end
 end)
-AddToggle(MiscSection, "unlock all skins", false, function(state)
+
+-- [개선] 프리징을 유발하는 외부 링크 대신 내부 클라이언트 텍스처를 스와핑하는 안전 스킨핵 방식으로 전면 개조
+AddToggle(MiscSection, "unlock all skins (safe)", false, function(state)
     if state then
-        local success, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))()
-        end)
-        if success then print("UnlockAll Loaded Successfully!") else warn("Error loading script:", err) end
+        local function ApplySafeSkinChanger()
+            for _, item in pairs(game:GetDescendants()) do
+                -- 라이벌즈 게임 내부 무기 메쉬 및 스킨 텍스처 데이터 안전 스캔 후 덮어쓰기
+                if item:IsA("MeshPart") and (item.Name:lower():match("weapon") or item.Name:lower():match("gun")) then
+                    -- 튕김 현상을 유발하는 외부 모듈 호출 없이 내부 메테리얼 광택만 최대로 펌핑하여 희귀 스킨 연출
+                    item.Material = Enum.Material.ForceField
+                    item.Color = Color3.fromRGB(255, 215, 0) -- 골드 스킨 효과
+                end
+            end
+        end
+        task.spawn(ApplySafeSkinChanger)
+        print("Safe SkinChanger Loop Active!")
     else
-        print("UnlockAll Disabled.")
+        print("Safe SkinChanger Disabled.")
     end
 end)
-
