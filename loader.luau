@@ -296,8 +296,8 @@ local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -15, 0, 25)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "SOLAR HUB V1 - discord.gg/solar"
-Title.TextColor3 = Color3.fromRGB(150, 150, 150)
+Title.Text = "SOLAR HUB V1 - MEGA RAGE & AUTO FARM"
+Title.TextColor3 = Color3.fromRGB(255, 0, 50)
 Title.Font = Enum.Font.Code
 Title.TextSize = 11
 Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -333,7 +333,7 @@ local function CreateTabPages(tabName)
     LeftScroll.BackgroundTransparency = 1
     LeftScroll.BorderSizePixel = 0
     LeftScroll.ScrollBarThickness = 2
-    LeftScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 100, 255)
+    LeftScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 0, 50)
     local L_Layout = Instance.new("UIListLayout", LeftScroll)
     L_Layout.Padding = UDim.new(0, 10)
     
@@ -344,7 +344,7 @@ local function CreateTabPages(tabName)
     RightScroll.BackgroundTransparency = 1
     RightScroll.BorderSizePixel = 0
     RightScroll.ScrollBarThickness = 2
-    RightScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 100, 255)
+    RightScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 0, 50)
     local R_Layout = Instance.new("UIListLayout", RightScroll)
     R_Layout.Padding = UDim.new(0, 10)
 
@@ -372,7 +372,7 @@ local function SetupTabButton(name, order)
             if b:IsA("TextButton") then b.TextColor3 = Color3.fromRGB(160, 160, 160) end
         end
         Tabs[name].Page.Visible = true
-        TabBtn.TextColor3 = Color3.fromRGB(0, 120, 255)
+        TabBtn.TextColor3 = Color3.fromRGB(255, 0, 50)
     end)
 end
 
@@ -384,17 +384,17 @@ Tabs["main"].Page.Visible = true
 -- [[ 5. 섹션 프레임 생성 함수 ]]
 local function AddSection(parent, titleName)
     local SectionFrame = Instance.new("Frame", parent)
-    SectionFrame.Size = UDim2.new(1, -5, 0, 150)
+    SectionFrame.Size = UDim2.new(1, -5, 0, 195) -- 오토팜 추가로 높이 최적화
     SectionFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
     SectionFrame.BorderSizePixel = 1
-    SectionFrame.BorderColor3 = Color3.fromRGB(0, 85, 255)
+    SectionFrame.BorderColor3 = Color3.fromRGB(255, 0, 50)
     
     local SecTitle = Instance.new("TextLabel", SectionFrame)
     SecTitle.Size = UDim2.new(1, -10, 0, 18)
     SecTitle.Position = UDim2.new(0, 8, 0, 2)
     SecTitle.BackgroundTransparency = 1
     SecTitle.Text = titleName
-    SecTitle.TextColor3 = Color3.fromRGB(0, 120, 255)
+    SecTitle.TextColor3 = Color3.fromRGB(255, 0, 50)
     SecTitle.Font = Enum.Font.Code
     SecTitle.TextSize = 11
     SecTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -421,7 +421,7 @@ local function AddToggle(section, text, default, callback)
     Box.BorderSizePixel = 1
     Box.BorderColor3 = Color3.fromRGB(60, 60, 60)
     Box.Text = ""
-    Box.BackgroundColor3 = default and Color3.fromRGB(0, 85, 255) or Color3.fromRGB(14, 14, 14)
+    Box.BackgroundColor3 = default and Color3.fromRGB(255, 0, 50) or Color3.fromRGB(14, 14, 14)
     
     local Label = Instance.new("TextLabel", Row)
     Label.Size = UDim2.new(1, -25, 1, 0)
@@ -436,7 +436,7 @@ local function AddToggle(section, text, default, callback)
     local state = default
     Box.MouseButton1Click:Connect(function()
         state = not state
-        Box.BackgroundColor3 = state and Color3.fromRGB(0, 85, 255) or Color3.fromRGB(14, 14, 14)
+        Box.BackgroundColor3 = state and Color3.fromRGB(255, 0, 50) or Color3.fromRGB(14, 14, 14)
         callback(state)
     end)
 end
@@ -462,7 +462,7 @@ local function AddSlider(section, text, min, max, default, callback)
     ValueLabel.Position = UDim2.new(0, 0, 0, 0)
     ValueLabel.BackgroundTransparency = 1
     ValueLabel.Text = default .. " / " .. max
-    ValueLabel.TextColor3 = Color3.fromRGB(0, 120, 255)
+    ValueLabel.TextColor3 = Color3.fromRGB(255, 0, 50)
     ValueLabel.Font = Enum.Font.Code
     ValueLabel.TextSize = 11
     ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -477,7 +477,7 @@ local function AddSlider(section, text, min, max, default, callback)
 
     local Fill = Instance.new("Frame", Track)
     Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-    Fill.BackgroundColor3 = Color3.fromRGB(0, 85, 255)
+    Fill.BackgroundColor3 = Color3.fromRGB(255, 0, 50)
     Fill.BorderSizePixel = 0
 
     local SetValue = function(input)
@@ -525,10 +525,14 @@ end)
 
 
 -- ====================================================================
--- ⚡ 백엔드 기능 로직 엔진 (반동 무시 에임봇 & 리스폰 대응 ESP)
+-- ⚡ 백엔드 기능 로직 엔진 (오토팜 텔레포트 엔진 추가 탑재)
 -- ====================================================================
 
 _G.AimbotEnabled = false
+_G.SilentAimEnabled = false
+_G.TriggerBotEnabled = false
+_G.RageBotEnabled = false
+_G.AutoFarmEnabled = false -- 오토팜 변수 추가
 _G.AimbotFOV = 100
 
 _G.BoxESP = false
@@ -543,7 +547,7 @@ local CurrentJumpPower = 50
 -- FOV 원 오브젝트 생성
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
-FOVCircle.Color = Color3.fromRGB(0, 85, 255)
+FOVCircle.Color = Color3.fromRGB(255, 0, 50)
 FOVCircle.Thickness = 1
 FOVCircle.NumSides = 64
 FOVCircle.Radius = _G.AimbotFOV
@@ -554,10 +558,10 @@ RunService.RenderStepped:Connect(function()
     FOVCircle.Position = UserInputService:GetMouseLocation()
 end)
 
--- 타겟팅 헬퍼 함수
+-- 하이엔드 타겟 탐지 스캐너
 local function GetClosestPlayer()
     local ClosestTarget = nil
-    local MaxDistance = _G.AimbotFOV
+    local MaxDistance = 999999 -- 오토팜 전용 탐색을 위해 스캔 범위 최대화
     local MousePos = UserInputService:GetMouseLocation()
     local MyCharacter = LocalPlayer.Character
     if not MyCharacter then return nil end
@@ -570,14 +574,23 @@ local function GetClosestPlayer()
             local Humanoid = player.Character:FindFirstChildOfClass("Humanoid")
             
             if TargetPart and Humanoid and Humanoid.Health > 0 then
-                local MainPlayerDistance = (MyHRP.Position - TargetPart.Position).Magnitude
-                if MainPlayerDistance <= 10000 then
+                -- 오토팜이 켜져있을 때는 화면 안/밖 상관없이 맵 전체에서 가장 가까운 대상을 추적
+                if _G.AutoFarmEnabled then
+                    local Distance = (MyHRP.Position - TargetPart.Position).Magnitude
+                    if Distance < MaxDistance then
+                        MaxDistance = Distance
+                        ClosestTarget = TargetPart
+                    end
+                else
+                    -- 일반 에임봇용 FOV 기준 탐색
                     local ScreenPos, OnScreen = Camera:WorldToViewportPoint(TargetPart.Position)
                     if OnScreen then
                         local Distance = (Vector2.new(ScreenPos.X, ScreenPos.Y) - MousePos).Magnitude
-                        if Distance < MaxDistance then
-                            MaxDistance = Distance
-                            ClosestTarget = TargetPart
+                        if Distance < _G.AimbotFOV then
+                            if Distance < MaxDistance then
+                                MaxDistance = Distance
+                                ClosestTarget = TargetPart
+                            end
                         end
                     end
                 end
@@ -587,12 +600,59 @@ local function GetClosestPlayer()
     return ClosestTarget
 end
 
--- [개선] 카메라 반동 물리 연산을 무시하고 룩앳(LookAt) 벡터를 정밀하게 덮어쓰는 에임 루프
-RunService.RenderStepped:Connect(function()
-    if _G.AimbotEnabled then
+-- [[ 🚀 오토팜 (가장 가까운 상대 위로 무한 텔레포트) ]]
+RunService.Heartbeat:Connect(function()
+    if _G.AutoFarmEnabled and LocalPlayer.Character then
+        local MyHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local TargetPart = GetClosestPlayer() -- 가장 가까운 적 검출
+        
+        if MyHRP and TargetPart and TargetPart.Parent then
+            -- 적의 머리(Head) 위치 기준 대략 3.5스터드 바로 위로 무한 좌표 고정
+            -- 이 상태에서 트리거봇이나 사일런트 에임 조합 시 낙하 처단 가능
+            MyHRP.CFrame = TargetPart.CFrame * CFrame.new(0, 3.5, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+            
+            -- 속도 잔상 및 낙하 추락 방지 벡터 초기화
+            MyHRP.Velocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
+-- [[ 🔥 SILENT AIM (사일런트 에임) 후킹 시스템 ]]
+local OldNamecall
+OldNamecall = hookmetamethod(game, "__namecall", function(Self, ...)
+    local Args = {...}
+    local Method = getnamecallmethod()
+    
+    if _G.SilentAimEnabled and tostring(Method) == "FindPartOnRayWithIgnoreList" then
         local Target = GetClosestPlayer()
         if Target then
-            -- 기존 CFrame 연산 방식에서 카메라 원점 위치를 강제 고정하여 총기 반동 흔들림 완전 차단
+            Args[1] = Ray.new(Camera.CFrame.Position, (Target.Position - Camera.CFrame.Position).Unit * 1000)
+            return OldNamecall(Self, unpack(Args))
+        end
+    end
+    return OldNamecall(Self, ...)
+end)
+
+-- [[ 🤖 TRIGGER BOT (트리거봇) 시스템 ]]
+RunService.RenderStepped:Connect(function()
+    if _G.TriggerBotEnabled then
+        local MouseTarget = LocalPlayer:GetMouse().Target
+        if MouseTarget and MouseTarget.Parent and Players:GetPlayerFromCharacter(MouseTarget.Parent) then
+            local TargetPlayer = Players:GetPlayerFromCharacter(MouseTarget.Parent)
+            if TargetPlayer ~= LocalPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChildOfClass("Humanoid") and TargetPlayer.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+                mouse1click()
+            end
+        end
+    end
+end)
+
+-- [[ 💀 RAGE BOT & 기존 에임봇 루프 ]]
+RunService.RenderStepped:Connect(function()
+    local Target = GetClosestPlayer()
+    if Target then
+        if _G.RageBotEnabled then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Target.Position)
+        elseif _G.AimbotEnabled then
             Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Target.Position)
         end
     end
@@ -611,12 +671,12 @@ local function GetCurrentWeapon(player)
     return "Equipped"
 end
 
--- [개선] 1대1 라운드 리스폰에 완벽하게 실시간 대응하는 고성능 ESP 엔진
+-- 리스폰 대응 ESP 엔진
 local function CreateESP(player)
     local Box = Drawing.new("Square")
     Box.Thickness = 1
     Box.Filled = false
-    Box.Color = Color3.fromRGB(255, 0, 0)
+    Box.Color = Color3.fromRGB(255, 0, 50)
 
     local NameLabel = Drawing.new("Text")
     NameLabel.Size = 13
@@ -689,22 +749,20 @@ local function CreateESP(player)
         end)
     end
 
-    -- 1대1 라운드 종료 후 부활할 때마다 캐릭터를 다시 물고 늘어지는 핵심 감지 장치
     player.CharacterAdded:Connect(function()
-        task.wait(0.2) -- 리스폰 딜레이 안정화 캐싱
+        task.wait(0.3)
         StartTracking()
     end)
     
     if player.Character then StartTracking() end
 end
 
--- 초기 유저 및 접속 유저 바인딩
 for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CreateESP(p) end end
 Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateESP(p) end end)
 
--- 유틸리티 기능 구역
+-- 유틸리티 노클립 엔진 (오토팜 작동 시 벽에 끼지 않도록 패시브 연동 강화)
 RunService.Stepped:Connect(function()
-    if _G.NoClipEnabled and LocalPlayer.Character then
+    if (_G.NoClipEnabled or _G.AutoFarmEnabled) and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
@@ -729,12 +787,16 @@ end)
 
 
 -- ====================================================================
--- 🛠️ UI 탭 컴포넌트 레이아웃 최종 배치
+-- 🛠️ UI 탭 컴포넌트 최종 컴파일 레이아웃
 -- ====================================================================
 
--- 1. [main 탭]
-local AimSection = AddSection(Tabs["main"].Left, "aimbot settings")
+-- 1. [main 탭 - 컴뱃 및 오토팜 기능 세팅]
+local AimSection = AddSection(Tabs["main"].Left, "combat & auto farm settings")
 AddToggle(AimSection, "aimbot enabled", false, function(state) _G.AimbotEnabled = state end)
+AddToggle(AimSection, "silent aim (legit)", false, function(state) _G.SilentAimEnabled = state end)
+AddToggle(AimSection, "trigger bot (auto-shot)", false, function(state) _G.TriggerBotEnabled = state end)
+AddToggle(AimSection, "rage bot (ultra hard)", false, function(state) _G.RageBotEnabled = state end)
+AddToggle(AimSection, "auto farm (teleport)", false, function(state) _G.AutoFarmEnabled = state end) -- 오토팜 UI 추가
 AddToggle(AimSection, "show fov circle", false, function(state) FOVCircle.Visible = state end)
 AddSlider(AimSection, "fov radius", 30, 500, 100, function(val) _G.AimbotFOV = val end)
 
