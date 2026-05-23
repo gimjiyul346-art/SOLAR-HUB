@@ -296,7 +296,7 @@ local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -15, 0, 25)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "SOLAR HUB V1 - MEGA RAGE & AUTO FARM"
+Title.Text = "SOLAR HUB V1 - RE-FIX UPDATE"
 Title.TextColor3 = Color3.fromRGB(255, 0, 50)
 Title.Font = Enum.Font.Code
 Title.TextSize = 11
@@ -384,7 +384,7 @@ Tabs["main"].Page.Visible = true
 -- [[ 5. 섹션 프레임 생성 함수 ]]
 local function AddSection(parent, titleName)
     local SectionFrame = Instance.new("Frame", parent)
-    SectionFrame.Size = UDim2.new(1, -5, 0, 195) -- 오토팜 추가로 높이 최적화
+    SectionFrame.Size = UDim2.new(1, -5, 0, 195)
     SectionFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
     SectionFrame.BorderSizePixel = 1
     SectionFrame.BorderColor3 = Color3.fromRGB(255, 0, 50)
@@ -525,14 +525,14 @@ end)
 
 
 -- ====================================================================
--- ⚡ 백엔드 기능 로직 엔진 (오토팜 텔레포트 엔진 추가 탑재)
+-- ⚡ 백엔드 엔진
 -- ====================================================================
 
 _G.AimbotEnabled = false
 _G.SilentAimEnabled = false
 _G.TriggerBotEnabled = false
 _G.RageBotEnabled = false
-_G.AutoFarmEnabled = false -- 오토팜 변수 추가
+_G.AutoFarmEnabled = false
 _G.AimbotFOV = 100
 
 _G.BoxESP = false
@@ -544,7 +544,6 @@ _G.NoClipEnabled = false
 _G.InfiniteJump = false
 local CurrentJumpPower = 50
 
--- FOV 원 오브젝트 생성
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
 FOVCircle.Color = Color3.fromRGB(255, 0, 50)
@@ -558,10 +557,9 @@ RunService.RenderStepped:Connect(function()
     FOVCircle.Position = UserInputService:GetMouseLocation()
 end)
 
--- 하이엔드 타겟 탐지 스캐너
 local function GetClosestPlayer()
     local ClosestTarget = nil
-    local MaxDistance = 999999 -- 오토팜 전용 탐색을 위해 스캔 범위 최대화
+    local MaxDistance = 999999
     local MousePos = UserInputService:GetMouseLocation()
     local MyCharacter = LocalPlayer.Character
     if not MyCharacter then return nil end
@@ -574,7 +572,6 @@ local function GetClosestPlayer()
             local Humanoid = player.Character:FindFirstChildOfClass("Humanoid")
             
             if TargetPart and Humanoid and Humanoid.Health > 0 then
-                -- 오토팜이 켜져있을 때는 화면 안/밖 상관없이 맵 전체에서 가장 가까운 대상을 추적
                 if _G.AutoFarmEnabled then
                     local Distance = (MyHRP.Position - TargetPart.Position).Magnitude
                     if Distance < MaxDistance then
@@ -582,7 +579,6 @@ local function GetClosestPlayer()
                         ClosestTarget = TargetPart
                     end
                 else
-                    -- 일반 에임봇용 FOV 기준 탐색
                     local ScreenPos, OnScreen = Camera:WorldToViewportPoint(TargetPart.Position)
                     if OnScreen then
                         local Distance = (Vector2.new(ScreenPos.X, ScreenPos.Y) - MousePos).Magnitude
@@ -600,65 +596,63 @@ local function GetClosestPlayer()
     return ClosestTarget
 end
 
--- [[ 🚀 오토팜 (가장 가까운 상대 위로 무한 텔레포트) ]]
+-- [[ 🚀 오토팜 위치 조정 수정 ]]
 RunService.Heartbeat:Connect(function()
     if _G.AutoFarmEnabled and LocalPlayer.Character then
         local MyHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local TargetPart = GetClosestPlayer() -- 가장 가까운 적 검출
+        local TargetPart = GetClosestPlayer()
         
         if MyHRP and TargetPart and TargetPart.Parent then
-            -- 적의 머리(Head) 위치 기준 대략 3.5스터드 바로 위로 무한 좌표 고정
-            -- 이 상태에서 트리거봇이나 사일런트 에임 조합 시 낙하 처단 가능
-            MyHRP.CFrame = TargetPart.CFrame * CFrame.new(0, 3.5, 0) * CFrame.Angles(math.rad(-90), 0, 0)
-            
-            -- 속도 잔상 및 낙하 추락 방지 벡터 초기화
+            -- 거리를 3.5스터드에서 1.8스터드로 좁혀 밀착 고정
+            MyHRP.CFrame = TargetPart.CFrame * CFrame.new(0, 1.8, 0)
             MyHRP.Velocity = Vector3.new(0, 0, 0)
         end
     end
 end)
 
--- [[ 🔥 SILENT AIM (사일런트 에임) 후킹 시스템 ]]
-local OldNamecall
-OldNamecall = hookmetamethod(game, "__namecall", function(Self, ...)
-    local Args = {...}
-    local Method = getnamecallmethod()
-    
-    if _G.SilentAimEnabled and tostring(Method) == "FindPartOnRayWithIgnoreList" then
+-- [[ 🔥 사일런트 에임 대체 구현 ]]
+local Meta = getrawmetatable(game)
+local OldIndex = Meta.__index
+setreadonly(Meta, false)
+
+Meta.__index = newcstackclosure(function(Self, Key)
+    if _G.SilentAimEnabled and tostring(Self) == "Mouse" and Key == "Hit" then
         local Target = GetClosestPlayer()
         if Target then
-            Args[1] = Ray.new(Camera.CFrame.Position, (Target.Position - Camera.CFrame.Position).Unit * 1000)
-            return OldNamecall(Self, unpack(Args))
+            return Target.CFrame
         end
     end
-    return OldNamecall(Self, ...)
+    return OldIndex(Self, Key)
 end)
+setreadonly(Meta, true)
 
--- [[ 🤖 TRIGGER BOT (트리거봇) 시스템 ]]
+-- [[ 🤖 트리거봇 입력 구조 보완 ]]
 RunService.RenderStepped:Connect(function()
     if _G.TriggerBotEnabled then
-        local MouseTarget = LocalPlayer:GetMouse().Target
-        if MouseTarget and MouseTarget.Parent and Players:GetPlayerFromCharacter(MouseTarget.Parent) then
-            local TargetPlayer = Players:GetPlayerFromCharacter(MouseTarget.Parent)
-            if TargetPlayer ~= LocalPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChildOfClass("Humanoid") and TargetPlayer.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
-                mouse1click()
+        local Target = GetClosestPlayer()
+        if Target and Target.Parent then
+            local PlayerTarget = Players:GetPlayerFromCharacter(Target.Parent)
+            if PlayerTarget and PlayerTarget ~= LocalPlayer then
+                -- 내부 가상 활성화 루틴 시도
+                local Tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if Tool then
+                    Tool:Activate()
+                end
             end
         end
     end
 end)
 
--- [[ 💀 RAGE BOT & 기존 에임봇 루프 ]]
+-- [[ 💀 RAGE BOT 및 기존 에임봇 루프 ]]
 RunService.RenderStepped:Connect(function()
     local Target = GetClosestPlayer()
     if Target then
-        if _G.RageBotEnabled then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Target.Position)
-        elseif _G.AimbotEnabled then
+        if _G.RageBotEnabled or _G.AimbotEnabled then
             Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Target.Position)
         end
     end
 end)
 
--- 라이벌즈 무기 감지 함수
 local function GetCurrentWeapon(player)
     if not player.Character then return "Hands" end
     local Tool = player.Character:FindFirstChildOfClass("Tool")
@@ -671,7 +665,6 @@ local function GetCurrentWeapon(player)
     return "Equipped"
 end
 
--- 리스폰 대응 ESP 엔진
 local function CreateESP(player)
     local Box = Drawing.new("Square")
     Box.Thickness = 1
@@ -760,7 +753,6 @@ end
 for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CreateESP(p) end end
 Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateESP(p) end end)
 
--- 유틸리티 노클립 엔진 (오토팜 작동 시 벽에 끼지 않도록 패시브 연동 강화)
 RunService.Stepped:Connect(function()
     if (_G.NoClipEnabled or _G.AutoFarmEnabled) and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
@@ -787,27 +779,24 @@ end)
 
 
 -- ====================================================================
--- 🛠️ UI 탭 컴포넌트 최종 컴파일 레이아웃
+-- 🛠️ UI 배치
 -- ====================================================================
 
--- 1. [main 탭 - 컴뱃 및 오토팜 기능 세팅]
 local AimSection = AddSection(Tabs["main"].Left, "combat & auto farm settings")
 AddToggle(AimSection, "aimbot enabled", false, function(state) _G.AimbotEnabled = state end)
 AddToggle(AimSection, "silent aim (legit)", false, function(state) _G.SilentAimEnabled = state end)
 AddToggle(AimSection, "trigger bot (auto-shot)", false, function(state) _G.TriggerBotEnabled = state end)
 AddToggle(AimSection, "rage bot (ultra hard)", false, function(state) _G.RageBotEnabled = state end)
-AddToggle(AimSection, "auto farm (teleport)", false, function(state) _G.AutoFarmEnabled = state end) -- 오토팜 UI 추가
+AddToggle(AimSection, "auto farm (teleport)", false, function(state) _G.AutoFarmEnabled = state end)
 AddToggle(AimSection, "show fov circle", false, function(state) FOVCircle.Visible = state end)
 AddSlider(AimSection, "fov radius", 30, 500, 100, function(val) _G.AimbotFOV = val end)
 
--- 2. [esp 탭]
 local VisualSection = AddSection(Tabs["esp"].Left, "esp overlay")
 AddToggle(VisualSection, "box esp", false, function(state) _G.BoxESP = state end)
 AddToggle(VisualSection, "name esp (top)", false, function(state) _G.NameESP = state end)
 AddToggle(VisualSection, "health esp (bar)", false, function(state) _G.HealthESP = state end)
 AddToggle(VisualSection, "weapon esp (bottom)", false, function(state) _G.WeaponESP = state end)
 
--- 3. [world 탭]
 local MiscSection = AddSection(Tabs["world"].Left, "misc utilities")
 AddToggle(MiscSection, "noclip", false, function(state) _G.NoClipEnabled = state end)
 AddToggle(MiscSection, "infinite jump", false, function(state) _G.InfiniteJump = state end)
