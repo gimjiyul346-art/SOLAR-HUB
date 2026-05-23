@@ -1,9 +1,6 @@
 local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
 
--- [[ 1. 중복 실행 방지 ]]
+-- [[ 1. 중복 실행 깔끔하게 방지 ]]
 for _, v in pairs(CoreGui:GetChildren()) do
     if v.Name == "SOLAR_PREMIUM_UE" then v:Destroy() end
 end
@@ -13,18 +10,19 @@ local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "SOLAR_PREMIUM_UE"
 ScreenGui.DisplayOrder = 999
 
--- [[ 3. 메인 백그라운드 프레임 ]]
+-- [[ 3. 메인 백그라운드 프레임 (딥 블랙 사각형) ]]
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 520, 0, 420)
+MainFrame.Size = UDim2.new(0, 520, 0, 420) -- 가로형 고급 사이즈
 MainFrame.Position = UDim2.new(0.5, -260, 0.5, -210)
-MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
+MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 16) -- 정통 차콜 블랙
 MainFrame.BorderSizePixel = 1
-MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
+MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40) -- 얇은 외곽 경계선
+MainFrame.Visible = true
 MainFrame.Active = true
-MainFrame.Draggable = true
+MainFrame.Draggable = true -- 드래그 자유 이동 가능
 
--- 상단 타이틀
+-- 최상단 얇은 타이틀 텍스트
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -15, 0, 25)
 Title.Position = UDim2.new(0, 12, 0, 0)
@@ -35,7 +33,7 @@ Title.Font = Enum.Font.Code
 Title.TextSize = 11
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- [[ 4. 탭 메뉴 바 ]]
+-- [[ 4. 상단 가로 탭 메뉴 바 (main, world, esp ...) ]]
 local TabBar = Instance.new("Frame", MainFrame)
 TabBar.Size = UDim2.new(1, -24, 0, 24)
 TabBar.Position = UDim2.new(0, 12, 0, 25)
@@ -47,19 +45,23 @@ local TabListLayout = Instance.new("UIListLayout", TabBar)
 TabListLayout.FillDirection = Enum.FillDirection.Horizontal
 TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
+-- [[ 5. 기능들이 교체될 메인 컨테이너 ]]
 local ContentFrame = Instance.new("Frame", MainFrame)
 ContentFrame.Size = UDim2.new(1, -24, 1, -65)
 ContentFrame.Position = UDim2.new(0, 12, 0, 55)
 ContentFrame.BackgroundTransparency = 1
 
+-- 탭별 페이지 보관소
 local Tabs = {}
+
 local function CreateTabPages(tabName)
     local Page = Instance.new("Frame", ContentFrame)
     Page.Name = tabName .. "Page"
     Page.Size = UDim2.new(1, 0, 1, 0)
     Page.BackgroundTransparency = 1
-    Page.Visible = false
+    Page.Visible = false -- 처음엔 숨김
     
+    -- 좌측 스크롤 구역
     local LeftScroll = Instance.new("ScrollingFrame", Page)
     LeftScroll.Name = "Left"
     LeftScroll.Size = UDim2.new(0.5, -5, 1, 0)
@@ -70,6 +72,7 @@ local function CreateTabPages(tabName)
     local L_Layout = Instance.new("UIListLayout", LeftScroll)
     L_Layout.Padding = UDim.new(0, 10)
     
+    -- 우측 스크롤 구역
     local RightScroll = Instance.new("ScrollingFrame", Page)
     RightScroll.Name = "Right"
     RightScroll.Size = UDim2.new(0.5, -5, 1, 0)
@@ -84,9 +87,12 @@ local function CreateTabPages(tabName)
     Tabs[tabName] = {Left = LeftScroll, Right = RightScroll, Page = Page}
 end
 
+-- 사용할 탭 페이지 등록
 CreateTabPages("main")
 CreateTabPages("world")
+CreateTabPages("esp")
 
+-- 탭 버튼 생성 및 클릭 이벤트 연동 함수
 local function SetupTabButton(name, order)
     local TabBtn = Instance.new("TextButton", TabBar)
     TabBtn.Size = UDim2.new(0, 65, 1, 0)
@@ -104,21 +110,25 @@ local function SetupTabButton(name, order)
             if b:IsA("TextButton") then b.TextColor3 = Color3.fromRGB(160, 160, 160) end
         end
         Tabs[name].Page.Visible = true
-        TabBtn.TextColor3 = Color3.fromRGB(0, 120, 255)
+        TabBtn.TextColor3 = Color3.fromRGB(0, 120, 255) -- 선택된 탭은 파란색 빛
     end)
 end
 
+-- 탭 세팅
 SetupTabButton("main", 1)
 SetupTabButton("world", 2)
+SetupTabButton("esp", 3)
+
+-- 기본 화면은 main 페이지로 지정
 Tabs["main"].Page.Visible = true
 
--- [[ 5. 섹션 프레임 생성 함수 ]]
+-- [[ 6. 파란색 테두리 구역(Section) 생성 함수 ]]
 local function AddSection(parent, titleName)
     local SectionFrame = Instance.new("Frame", parent)
-    SectionFrame.Size = UDim2.new(1, -5, 0, 160)
+    SectionFrame.Size = UDim2.new(1, -5, 0, 150) -- 필요에 따라 높이 조절
     SectionFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
     SectionFrame.BorderSizePixel = 1
-    SectionFrame.BorderColor3 = Color3.fromRGB(0, 85, 255)
+    SectionFrame.BorderColor3 = Color3.fromRGB(0, 85, 255) -- 파란색 네온 선
     
     local SecTitle = Instance.new("TextLabel", SectionFrame)
     SecTitle.Size = UDim2.new(1, -10, 0, 18)
@@ -135,12 +145,12 @@ local function AddSection(parent, titleName)
     Container.Position = UDim2.new(0, 5, 0, 22)
     Container.BackgroundTransparency = 1
     local C_Layout = Instance.new("UIListLayout", Container)
-    C_Layout.Padding = UDim.new(0, 6)
+    C_Layout.Padding = UDim.new(0, 4)
     
     return Container
 end
 
--- [[ 6. 토글 기능 함수 ]]
+-- [[ 7. 정통 미니 체크박스 토글 함수 ]]
 local function AddToggle(section, text, default, callback)
     local Row = Instance.new("Frame", section)
     Row.Size = UDim2.new(1, 0, 0, 20)
@@ -172,78 +182,9 @@ local function AddToggle(section, text, default, callback)
     end)
 end
 
--- [[ 7. 하이엔드 슬라이더 함수 (영상 속 테두리 및 레이아웃 반영) ]]
-local function AddSlider(section, text, min, max, default, callback)
-    local SliderRow = Instance.new("Frame", section)
-    SliderRow.Size = UDim2.new(1, 0, 0, 32)
-    SliderRow.BackgroundTransparency = 1
-
-    local Label = Instance.new("TextLabel", SliderRow)
-    Label.Size = UDim2.new(1, 0, 0, 14)
-    Label.Position = UDim2.new(0, 5, 0, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = text
-    Label.TextColor3 = Color3.fromRGB(180, 180, 180)
-    Label.Font = Enum.Font.Code
-    Label.TextSize = 11
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-
-    local ValueLabel = Instance.new("TextLabel", SliderRow)
-    ValueLabel.Size = UDim2.new(1, -10, 0, 14)
-    ValueLabel.Position = UDim2.new(0, 0, 0, 0)
-    ValueLabel.BackgroundTransparency = 1
-    ValueLabel.Text = default .. " / " .. max
-    ValueLabel.TextColor3 = Color3.fromRGB(0, 120, 255)
-    ValueLabel.Font = Enum.Font.Code
-    ValueLabel.TextSize = 11
-    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-    -- 슬라이더 전체 축 프레임
-    local Track = Instance.new("TextButton", SliderRow)
-    Track.Size = UDim2.new(1, -10, 0, 10)
-    Track.Position = UDim2.new(0, 5, 0, 16)
-    Track.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    Track.BorderSizePixel = 1
-    Track.BorderColor3 = Color3.fromRGB(40, 40, 40)
-    Track.Text = ""
-
-    -- 파란색 게이지 프레임 (영상 디자인 핵심)
-    local Fill = Instance.new("Frame", Track)
-    Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-    Fill.BackgroundColor3 = Color3.fromRGB(0, 85, 255)
-    Fill.BorderSizePixel = 0
-
-    local SetValue = function(input)
-        local l = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-        Fill.Size = UDim2.new(l, 0, 1, 0)
-        local val = math.floor(min + (max - min) * l)
-        ValueLabel.Text = val .. " / " .. max
-        callback(val)
-    end
-
-    local IsDragging = false
-    Track.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            IsDragging = true
-            SetValue(input)
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if IsDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            SetValue(input)
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            IsDragging = false
-        end
-    end)
-end
-
--- [[ 8. 숨기기 숨기기 기능 토글 버튼 ]]
+-- [[ 8. UI 원버튼 열고 닫기 토글 시스템 ]]
 local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Name = "UIToggleButton"
 ToggleBtn.Size = UDim2.new(0, 45, 0, 30)
 ToggleBtn.Position = UDim2.new(0, 15, 0, 15)
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -253,52 +194,16 @@ ToggleBtn.Font = Enum.Font.GothamBold
 ToggleBtn.TextSize = 13
 ToggleBtn.BorderSizePixel = 1
 ToggleBtn.BorderColor3 = Color3.fromRGB(50, 50, 50)
-ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
 
 
 -- ====================================================================
--- 💡 기능 실시간 엔진 로직 및 UI 배치 연동
+-- 💡 여기서부터 원하는 구역과 기능을 한 땀 한 땀 추가해나가면 됩니다!
 -- ====================================================================
 
-local CurrentJumpPower = 50 -- 로블록스 기본 점프력 값 설정
-_G.InfiniteJumpEnabled = false
-
--- 무한 점프 백엔드 루프 연동
-UserInputService.JumpRequest:Connect(function()
-    if _G.InfiniteJumpEnabled and LocalPlayer.Character then
-        local Humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if Humanoid then
-            -- 점프력을 변경하면 UseJumpPower 옵션을 강제로 True로 켜줘야 적용되는 게임이 많아 안전장치 배치
-            Humanoid.UseJumpPower = true 
-            Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
-    end
-end)
-
--- 캐릭터가 죽고 부활해도 슬라이더로 조절한 점프력을 계속 유지시키는 추적 엔진
-LocalPlayer.CharacterAdded:Connect(function(Character)
-    local Humanoid = Character:WaitForChild("Humanoid")
-    Humanoid.UseJumpPower = true
-    Humanoid.JumpPower = CurrentJumpPower
-end)
-
-
--- [[ 9. UI 섹션 및 기능 주입 ]]
-local CharacterSection = AddSection(Tabs["main"].Left, "character settings")
-
--- 1) 무한 점프 토글 추가
-AddToggle(CharacterSection, "infinite jump", false, function(state)
-    _G.InfiniteJumpEnabled = state
-end)
-
--- 2) 점프력 슬라이더 바 추가 (최소 50 ~ 최대 500 조절 가능)
-AddSlider(CharacterSection, "jump power", 50, 500, 50, function(value)
-    CurrentJumpPower = value
-    if LocalPlayer.Character then
-        local Humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if Humanoid then
-            Humanoid.UseJumpPower = true
-            Humanoid.JumpPower = value
-        end
-    end
-end)
+-- [예시 구역 등록 방법]
+-- local 예시섹션 = AddSection(Tabs["main"].Left, "test section")
+-- AddToggle(예시섹션, "test sub-function", false, function(state) end)
