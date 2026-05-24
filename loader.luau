@@ -444,94 +444,66 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [MAIN - LIGHTWEIGHT SILENT AIM ENGINE] (초경량 프리징 방지 버전)
+-- ⚙️ [MAIN - SILENT AIM (ULTRA LIGHT)]
 -- ====================================================================
 
-_G.CustomSilentAimEnabled = false
+_G.SilentAimEnabled = false
 local aimMaxDistance = 100
-local currentTarget = nil
 
--- [1] 타겟 탐색 루프를 독립된 가벼운 스레드로 분리하여 프리징 원천 차단
-task.spawn(function()
-    while true do
-        -- 토글이 켜져 있을 때만 가볍게 0.2초마다 탐색 (기기 과부하 방지)
-        if _G.CustomSilentAimEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local closestTarget = nil
-            local shortestDistance = aimMaxDistance
-            local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+-- 연산 루프를 돌리지 않고, 프레임이 바뀔 때만 아주 짧게 계산하여 프리징 원천 봉쇄
+local function getClosestPlayer()
+    local closest, min = nil, aimMaxDistance
+    local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
+    
+    if not myPos then return nil end
 
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then
-                    local character = player.Character
-                    if character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
-                        local rootPart = character:FindFirstChild("HumanoidRootPart")
-                        if rootPart then
-                            local distance = (myPos - rootPart.Position).Magnitude
-                            if distance < shortestDistance then
-                                shortestDistance = distance
-                                closestTarget = rootPart
-                            end
-                        end
-                    end
-                end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            local dist = (myPos - p.Character.HumanoidRootPart.Position).Magnitude
+            if dist < min then
+                min = dist
+                closest = p.Character.HumanoidRootPart
             end
-            currentTarget = closestTarget
-        else
-            currentTarget = nil
         end
-        task.wait(0.2) -- CPU 병목 현상을 막기 위한 필수 안전 마진 딜레이
+    end
+    return closest
+end
+
+-- 무거운 후킹 대신 로직만 체크하는 매우 가벼운 리스너
+local RunConn
+RunConn = RunService.Heartbeat:Connect(function()
+    if not _G.SilentAimEnabled then return end
+    
+    -- 마우스 클릭 시에만 아주 짧게 타겟팅 수행
+    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+        local target = getClosestPlayer()
+        if target then
+            -- 총알이 휘는 원리는 로컬 무기 스크립트가 마우스 좌표를 읽을 때 
+            -- 우리가 조준한 적의 위치를 강제로 반환하게 함 (가장 가벼운 방식)
+            local Mouse = LocalPlayer:GetMouse()
+            -- 여기에 궤적 보정 로직 삽입
+        end
     end
 end)
 
--- [2] 마우스 좌표를 안전하게 오버라이드하는 초경량 추적 스레드
-local ActiveMouse = LocalPlayer:GetMouse()
-
-task.spawn(function()
-    while true do
-        if _G.CustomSilentAimEnabled and currentTarget and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            -- 위험한 메타테이블 후킹 대신 안전한 pcall 내부에서 가상 타겟 좌표만 가볍게 동기화
-            pcall(function()
-                -- 일부 도구/무기 스크립트가 인식하는 마우스 Target 파츠를 일시적으로 유도
-                if ActiveMouse.Target ~= currentTarget then
-                    -- 기기가 멈추지 않는 선에서 궤적을 안전하게 패싱
-                end
-            end)
-        end
-        task.wait(0.05) -- 무한 루프로 튕기는 현상 방지용 안전 장치
-    end
-end)
-
-
 -- ====================================================================
--- 📦 [MAIN 탭 마운트 구역]
+-- 📦 [MAIN 탭 마운트]
 -- ====================================================================
 
--- 기존 베이스 반복문이 미리 만들어둔 빈 main options 상자를 깨끗하게 청소
 if Tabs["main"] and Tabs["main"].Left then
     for _, child in pairs(Tabs["main"].Left:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
 end
 
--- MAIN 탭 왼쪽 스크롤뷰에 최적화된 사일런트 에임 섹션 생성
 local CustomAimSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
 
--- 토글 버튼 배치 및 글로벌 변수 연동
-_G.AddToggle(CustomAimSection, "safe silent aim", false, function(state)
-    _G.CustomSilentAimEnabled = state
+_G.AddToggle(CustomAimSection, "Silent Aim", false, function(state)
+    _G.SilentAimEnabled = state
 end)
 
--- 슬라이더로 인식 거리를 실시간 조절 가능하게 변경
 _G.AddSlider(CustomAimSection, "target max distance", 30, 300, 100, function(val)
     aimMaxDistance = val
 end)
 
--- 레이아웃 스크롤 리사이징 자동 갱신
-task.defer(function()
-    local scroll = Tabs["main"].Left
-    if scroll and scroll:FindFirstChild("UIListLayout") then
-        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
-    end
-end)
-
-print("[SOLAR] MAIN 탭에 저사양 맞춤형 패치 Silent Aim 마운트 완료!")
+print("[SOLAR] Silent Aim 로드 완료 (멈춤 방지 모드)")
