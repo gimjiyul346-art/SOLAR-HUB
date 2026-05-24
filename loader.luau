@@ -444,109 +444,92 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [완벽 상세 통합 엔진: Silent Aim (Original) + ESP + Auto Farm]
+-- ⚙️ [최종 통합 엔진: 상세 ESP + 최적화된 Auto Farm + Skin Changer]
 -- ====================================================================
 
+-- [1] 형이 준 Silent Aim (Original)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
+local Utility = require(ReplicatedStorage.Modules.Utility)
 
--- 1. [형이 준 Silent Aim 상세 로직]
-local utility = require(ReplicatedStorage.Modules.Utility);
-local get_players = function()
-    local entities = {};
-    for _, child in pairs(workspace:GetChildren()) do
-        if child:FindFirstChildOfClass("Humanoid") then
-            table.insert(entities, child);
-        elseif child.Name == "HurtEffect" then
-            for _, hurt_player in pairs(child:GetChildren()) do
-                if (hurt_player.ClassName ~= "Highlight") then
-                    table.insert(entities, hurt_player);
-                end
+_G.SilentEnabled = false
+local oldRaycast = Utility.Raycast
+Utility.Raycast = function(...)
+    local args = {...}
+    if _G.SilentEnabled and #args > 0 and args[4] == 999 then
+        local closest = get_closest_player() -- 아까 형이 준 함수 사용
+        if closest and closest:FindFirstChild("Head") then args[3] = closest.Head.Position end
+    end
+    return oldRaycast(unpack(args))
+end
+
+-- [2] ESP 드로잉 상세 로직
+local function CreateESP(target)
+    local box = Drawing.new("Square")
+    box.Visible = false; box.Filled = false; box.Thickness = 1
+    
+    local name = Drawing.new("Text")
+    name.Visible = false; name.Size = 13; name.Center = true
+    
+    local health = Drawing.new("Line")
+    health.Visible = false; health.Thickness = 2
+    
+    return {box = box, name = name, health = health}
+end
+
+local esp_cache = {}
+game:GetService("RunService").RenderStepped:Connect(function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= Players.LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            if not esp_cache[p] then esp_cache[p] = CreateESP(p) end
+            local pos, onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+            if onScreen and _G.BoxESP then
+                local obj = esp_cache[p]
+                obj.box.Visible = true
+                obj.box.Position = Vector2.new(pos.X - 30, pos.Y - 50)
+                obj.box.Size = Vector2.new(60, 100)
+                
+                -- 무기 이름 표시
+                local tool = p.Character:FindFirstChildOfClass("Tool")
+                obj.name.Visible = true
+                obj.name.Text = tool and tool.Name or "None"
+                obj.name.Position = Vector2.new(pos.X, pos.Y - 70)
+                
+                -- 체력바 상세 구현
+                obj.health.Visible = true
+                obj.health.From = Vector2.new(pos.X - 40, pos.Y - 50)
+                obj.health.To = Vector2.new(pos.X - 40, pos.Y - 50 + (p.Character.Humanoid.Health / p.Character.Humanoid.MaxHealth * 100))
+            else
+                esp_cache[p].box.Visible = false; esp_cache[p].name.Visible = false; esp_cache[p].health.Visible = false
             end
         end
     end
-    return entities
-end
-local get_closest_player = function()
-    local closest, closest_distance = nil, math.huge;
-    local character = LocalPlayer.Character;
-    if (character == nil) then return; end
-    for _, player in pairs(get_players()) do
-        if (player == LocalPlayer) then continue; end
-        if (not player:FindFirstChild("HumanoidRootPart")) then continue; end
-        local position, on_screen = Camera:WorldToViewportPoint(player.HumanoidRootPart.Position);
-        if (on_screen == false) then continue; end
-        local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2);
-        local distance = (center - Vector2.new(position.X, position.Y)).Magnitude;
-        if (distance > closest_distance) then continue; end
-        closest = player;
-        closest_distance = distance;
-    end
-    return closest;
-end
+end)
 
-_G.SilentEnabled = false
-local old = utility.Raycast; 
-utility.Raycast = function(...)
-    local arguments = {...};
-    if _G.SilentEnabled and (#arguments > 0 and arguments[4] == 999) then
-        local closest = get_closest_player();
-        if (closest and closest:FindFirstChild("Head")) then
-            arguments[3] = closest.Head.Position;
-        end
-    end
-    return old(table.unpack(arguments));
-end
-
--- 2. [ESP 및 Auto Farm 상세 엔진]
-_G.BoxESP = false; _G.AutoFarm = false; _G.AutoShoot = false
-
-RunService.RenderStepped:Connect(function()
-    -- Auto Shoot (조준점 감지)
-    if _G.AutoShoot then
-        local target = get_closest_player()
-        if target then
-            local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if tool then tool:Activate() end
-        end
-    end
-    -- Auto Farm (상대 머리 위 텔포)
+-- [3] Auto Farm (머리 위 3 studs / 캐릭터 1.5개 높이)
+game:GetService("RunService").RenderStepped:Connect(function()
     if _G.AutoFarm then
         local target = get_closest_player()
-        if target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0)
+        if target and Players.LocalPlayer.Character then
+            Players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 3, 0)
         end
     end
 end)
 
--- 3. [상세 ESP 로직 (Drawing API)]
-local esp_objects = {}
-RunService.RenderStepped:Connect(function()
-    if not _G.BoxESP then 
-        for _, v in pairs(esp_objects) do v:Remove() end
-        esp_objects = {}
-        return 
-    end
-    -- 상대방 박스, 무기, 체력 바 상세 구현
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-            -- 여기에 ESP 상세 드로잉 코드 작성 (길게 유지)
-        end
-    end
-end)
-
--- 4. [UI 마운트 - 상세 섹션]
+-- [4] UI 마운트
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"]
-    local M = _G.AddSection(Tabs["main"].Left, "Combat & Farm")
+    repeat task.wait(0.5) until Tabs["main"] and Tabs["esp"] and Tabs["misc"]
+    
+    local M = _G.AddSection(Tabs["main"].Left, "Combat")
     _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
-    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.AutoShoot = s end)
     _G.AddToggle(M, "Auto Farm", false, function(s) _G.AutoFarm = s end)
     
     local E = _G.AddSection(Tabs["esp"].Left, "ESP Details")
     _G.AddToggle(E, "Box ESP", false, function(s) _G.BoxESP = s end)
+    
+    local I = _G.AddSection(Tabs["misc"].Left, "Utility")
+    _G.AddToggle(I, "Skin Changer", false, function(s) 
+        if s then task.spawn(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end) end 
+    end)
 end)
