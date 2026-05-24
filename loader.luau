@@ -444,78 +444,102 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- [최종 통합 엔진 V4: ALL-IN-ONE (Rage & Combat)]
+-- [최종 완전체 통합 엔진: 60줄 원본 유지 + Rage Bot 모듈]
 -- ====================================================================
-local RS, Players, Camera = game:GetService("ReplicatedStorage"), game:GetService("Players"), workspace.CurrentCamera
-local LP = Players.LocalPlayer
-local Utility = require(RS.Modules.Utility)
 
--- [기능 상태 전역 변수]
-_G.Silent = false; _G.Aim = false; _G.Trigger = false; _G.AntiAim = false; _G.AutoEquip = false; _G.BoxESP = false
+-- 1. [형이 준 원본 60줄 로직]
+local replicated_storage = game:GetService("ReplicatedStorage");
+local players = game:GetService("Players");
+local camera = workspace.CurrentCamera;
+local utility = require(replicated_storage.Modules.Utility);
 
--- 1. [Silent Aim: 헤드 고정]
-local old = Utility.Raycast
-Utility.Raycast = function(...)
-    local args = {...}
-    if _G.Silent and #args > 0 then
-        local target = get_closest_player()
-        if target and target:FindFirstChild("Head") then args[3] = target.Head.CFrame.Position end
+local get_players = function()
+    local entities = {};
+    for _, child in workspace:GetChildren() do
+        if child:FindFirstChildOfClass("Humanoid") then
+            table.insert(entities, child);
+        elseif child.Name == "HurtEffect" then
+            for _, hurt_player in child:GetChildren() do
+                if (hurt_player.ClassName ~= "Highlight") then
+                    table.insert(entities, hurt_player);
+                end
+            end
+        end
     end
-    return old(unpack(args))
+    return entities
+end
+local get_closest_player = function()
+    local closest, closest_distance = nil, math.huge;
+    local character = players.LocalPlayer.Character;
+    if (character == nil) then return; end
+    for _, player in get_players() do
+        if (player == players.LocalPlayer) then continue; end
+        if (not player:FindFirstChild("HumanoidRootPart")) then continue; end
+        local position, on_screen = camera:WorldToViewportPoint(player.HumanoidRootPart.Position);
+        if (on_screen == false) then continue; end
+        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
+        local distance = (center - Vector2.new(position.X, position.Y)).Magnitude;
+        if (distance > closest_distance) then continue; end
+        closest = player;
+        closest_distance = distance;
+    end
+    return closest;
 end
 
--- 2. [주요 기능 루프: Aimbot, Trigger, Anti-Aim]
+-- 2. [헤드샷 전용 Raycast]
+local old = utility.Raycast; 
+utility.Raycast = function(...)
+    local arguments = {...};
+    if _G.SilentEnabled and (#arguments > 0 and arguments[4] == 999) then
+        local closest = get_closest_player();
+        if (closest and closest:FindFirstChild("Head")) then
+            arguments[3] = closest.Head.CFrame.Position; 
+        end
+    end
+    return old(table.unpack(arguments));
+end
+
+-- 3. [기능 및 Rage Bot 통합]
+_G.SilentEnabled = false; _G.Wallbang = false; _G.RageMode = "None";
+
+local oldRaycast = utility.Raycast
+utility.Raycast = function(...)
+    local args = {...}
+    if _G.Wallbang and #args > 0 and args[4] == 999 then args[4] = nil end
+    return oldRaycast(unpack(args))
+end
+
 game:GetService("RunService").RenderStepped:Connect(function()
     local target = get_closest_player()
-    
-    if _G.Aim and target and target:FindFirstChild("Head") then
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Head.CFrame.Position)
-    end
-    
-    if _G.Trigger and target then
-        local tool = LP.Character and LP.Character:FindFirstChildOfClass("Tool")
+    local lp = players.LocalPlayer
+    local char = lp.Character
+    if not target or not char then return end
+
+    if _G.RageMode == "Gun" then
+        local tool = char:FindFirstChildOfClass("Tool")
         if tool then tool:Activate() end
-    end
-    
-    if _G.AntiAim and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        LP.Character.HumanoidRootPart.CFrame = LP.Character.HumanoidRootPart.CFrame + Vector3.new(math.random(-0.5, 0.5), 0, math.random(-0.5, 0.5))
-    end
-end)
-
--- 3. [ESP: 테두리만 있는 깔끔한 박스]
-local box = Drawing.new("Square"); box.Visible = false; box.Thickness = 1; box.Filled = false; box.Color = Color3.new(1, 1, 1)
-game:GetService("RunService").RenderStepped:Connect(function()
-    local target = get_closest_player()
-    if _G.BoxESP and target and target:FindFirstChild("HumanoidRootPart") then
-        local pos, onScreen = Camera:WorldToViewportPoint(target.HumanoidRootPart.Position)
-        if onScreen then
-            box.Visible = true; box.Position = Vector2.new(pos.X - 30, pos.Y - 50); box.Size = Vector2.new(60, 100)
-        else box.Visible = false end
-    else box.Visible = false end
-end)
-
--- 4. [Auto Equip]
-game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
-    if not gpe and _G.AutoEquip then
-        for _, item in pairs(LP.Backpack:GetChildren()) do
-            if item:IsA("Tool") then item.Parent = LP.Character end
+        camera.CFrame = CFrame.new(camera.CFrame.Position, target.Head.CFrame.Position)
+    elseif _G.RageMode == "Knife" then
+        char.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool then tool:Activate() end
+    elseif _G.RageMode == "Melee" then
+        if (char.HumanoidRootPart.Position - target.HumanoidRootPart.Position).Magnitude < 15 then
+            local tool = char:FindFirstChildOfClass("Tool")
+            if tool then tool:Activate() end
         end
     end
 end)
 
--- 5. [UI 통합]
+-- 4. [UI 배치 (Main 탭에 집중)]
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"] and Tabs["misc"]
+    repeat task.wait(0.5) until Tabs and Tabs["main"]
+    local M = _G.AddSection(Tabs["main"].Left, "Combat & Rage")
+    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
+    _G.AddToggle(M, "Wallbang", false, function(s) _G.Wallbang = s end)
     
-    local M = _G.AddSection(Tabs["main"].Left, "Combat")
-    _G.AddToggle(M, "Silent Aim", false, function(s) _G.Silent = s end)
-    _G.AddToggle(M, "Aimbot", false, function(s) _G.Aim = s end)
-    _G.AddToggle(M, "Triggerbot", false, function(s) _G.Trigger = s end)
-    _G.AddToggle(M, "Anti-Aim", false, function(s) _G.AntiAim = s end)
-    
-    local E = _G.AddSection(Tabs["esp"].Left, "ESP")
-    _G.AddToggle(E, "Box ESP", false, function(s) _G.BoxESP = s end)
-    
-    local I = _G.AddSection(Tabs["misc"].Left, "Utility")
-    _G.AddToggle(I, "Auto Equip", false, function(s) _G.AutoEquip = s end)
+    local R = _G.AddSection(Tabs["main"].Right, "Rage Bot Modes")
+    _G.AddToggle(R, "Mode: Gun (Auto Kill)", false, function(s) _G.RageMode = s and "Gun" or "None" end)
+    _G.AddToggle(R, "Mode: Knife (Backstab)", false, function(s) _G.RageMode = s and "Knife" or "None" end)
+    _G.AddToggle(R, "Mode: Melee (Range)", false, function(s) _G.RageMode = s and "Melee" or "None" end)
 end)
