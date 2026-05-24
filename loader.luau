@@ -281,73 +281,165 @@ end
 
 print("[SOLAR BASE] UI Base Loaded! Ready for Functions.")
 -- ====================================================================
--- ⚙️ [최종 통합 엔진: 탭 배치 최적화]
+-- ⚙️ [CHARACTER - CAMERA-ORIENTED FLY ENGINE]
 -- ====================================================================
 
--- 1. [Silent Aim 핵심 엔진]
-local RS = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local Camera = workspace.CurrentCamera
-local Utility = require(RS.Modules.Utility)
-_G.SilentEnabled = false
+_G.FlyEnabled = false
+local FlySpeed = 50
 
-local get_players = function()
-    local entities = {}
-    for _, child in pairs(workspace:GetChildren()) do
-        if child:FindFirstChildOfClass("Humanoid") then table.insert(entities, child)
-        elseif child.Name == "HurtEffect" then
-            for _, h in pairs(child:GetChildren()) do if h.ClassName ~= "Highlight" then table.insert(entities, h) end end
-        end
-    end
-    return entities
-end
+-- 비행 중 위치 유지를 위한 바디 포지션 오브젝트 세팅
+local FlyGyro, FlyPosition
 
-local oldRaycast = Utility.Raycast
-Utility.Raycast = function(...)
-    local args = {...}
-    if _G.SilentEnabled and #args > 0 and args[4] == 999 then
-        local closest, min = nil, math.huge
-        for _, p in pairs(get_players()) do
-            if p ~= Players.LocalPlayer.Character and p:FindFirstChild("HumanoidRootPart") then
-                local pos, vis = Camera:WorldToViewportPoint(p.HumanoidRootPart.Position)
-                local dist = vis and (Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) - Vector2.new(pos.X, pos.Y)).Magnitude or math.huge
-                if dist < min then min = dist; closest = p end
+table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local HRP = LocalPlayer.Character.HumanoidRootPart
+        local Hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        
+        if _G.FlyEnabled and Hum and Hum.Health > 0 then
+            local MoveDirection = Vector3.new(0, 0, 0)
+            
+            -- [1] PC 키보드 입력 방향 연산 (카메라 LookVector 완벽 동기화)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then MoveDirection = MoveDirection + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then MoveDirection = MoveDirection - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then MoveDirection = MoveDirection - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then MoveDirection = MoveDirection + Camera.CFrame.RightVector end
+            
+            -- [2] 모바일 조이스틱 입력 방향 연산
+            -- 모바일 조이스틱을 움직였을 때, 캐릭터 평면 무빙을 카메라가 바라보는 입체 방향(3D Vector)으로 변환합니다.
+            if Hum.MoveDirection.Magnitude > 0 then
+                local CameraLook = Camera.CFrame.LookVector
+                local CameraRight = Camera.CFrame.RightVector
+                
+                -- 조이스틱의 앞/뒤, 좌/우 입력을 카메라 시선 기준으로 재조합
+                local ForwardMove = CameraLook * (Hum.MoveDirection:Dot(Camera.CFrame.LookVector) / CameraLook.Magnitude)
+                local SideMove = CameraRight * (Hum.MoveDirection:Dot(Camera.CFrame.RightVector) / CameraRight.Magnitude)
+                
+                -- 이동 벡터가 비정상적으로 튀는 현상 방지 보정
+                if (ForwardMove + SideMove).Magnitude > 0 then
+                    MoveDirection = MoveDirection + (ForwardMove + SideMove).Unit
+                end
+            end
+            
+            -- [3] 수직 수동 제어 (PC: 스페이스바 / 모바일: 점프 버튼)
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) or Hum.Jump then 
+                MoveDirection = MoveDirection + Vector3.new(0, 1, 0) 
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then 
+                MoveDirection = MoveDirection - Vector3.new(0, 1, 0) 
+            end
+            
+            -- [4] 실제 좌표 이동 및 물리 제어
+            HRP.Velocity = Vector3.new(0, 0, 0) -- 중력 및 관성 제로화
+            
+            if MoveDirection.Magnitude > 0 then
+                -- 이동 중일 때: 시선 방향 벡터로 정밀 이동
+                HRP.CFrame = HRP.CFrame + (MoveDirection.Unit * (FlySpeed / 60))
+            else
+                -- 정지 중일 때 (호버링): 떨어지지 않고 공중에 고정되도록 강제 좌표 록온
+                HRP.CFrame = CFrame.new(HRP.Position, HRP.Position + Camera.CFrame.LookVector * Vector3.new(1, 0, 1))
             end
         end
-        if closest and closest:FindFirstChild("Head") then args[3] = closest.Head.Position end
     end
-    return oldRaycast(unpack(args))
+end))
+
+-- 비행 중 벽 통과 및 낙하 대미지 유발 렉 차단 (Noclip 셋업)
+table.insert(_G.SolarConnections, RunService.Stepped:Connect(function()
+    if _G.FlyEnabled and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetChildren()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end))
+
+
+-- ====================================================================
+-- 📦 [CHARACTER 탭 마운트 구역]
+-- ====================================================================
+
+-- 기존 베이스 반복문이 미리 만들어둔 빈 character options 상자를 깔끔하게 제거
+if Tabs["character"] and Tabs["character"].Left then
+    for _, child in pairs(Tabs["character"].Left:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
 end
 
--- 2. [UI 마운트]
-task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["CHARACTER"] and Tabs["VISUALS"]
-
-    -- MAIN 탭: Silent Aim 포함
-    local M = _G.AddSection(Tabs["main"].Left, "Combat")
-    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
-    _G.AddToggle(M, "Aimbot", false, function(s) _G.Settings.Aimbot = s end)
-    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.Settings.AutoShoot = s end)
-
-    -- CHARACTER 탭: Fly 추가
-    local C = _G.AddSection(Tabs["CHARACTER"].Left, "Movement")
-    _G.AddToggle(C, "Fly", false, function(s) 
-        _G.Flying = s
-        local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
-        hrp.Anchored = s
-    end)
-
-    -- VISUALS 탭: Skin Changer (비동기 로딩으로 멈춤 방지)
-    local V = _G.AddSection(Tabs["VISUALS"].Left, "Cosmetics")
-    _G.AddToggle(V, "Skin Changer", false, function(s) 
-        if s then task.spawn(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end) end 
-    end)
+-- CHARACTER 탭 왼쪽 스크롤뷰에 개선된 방향성 FLY 기능 배치
+local CharacterSection = _G.AddSection(Tabs["character"].Left, "character configuration")
+_G.AddToggle(CharacterSection, "cross-platform fly", false, function(state) 
+    _G.FlyEnabled = state 
+end)
+_G.AddSlider(CharacterSection, "fly velocity speed", 20, 200, 50, function(val) 
+    FlySpeed = val 
 end)
 
--- Fly 로직 (RenderStepped)
-game:GetService("RunService").RenderStepped:Connect(function()
-    if _G.Flying then
-        local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
-        hrp.CFrame = hrp.CFrame + (Camera.CFrame.LookVector * 1)
+-- 레이아웃 스크롤 리사이징 갱신
+task.defer(function()
+    local scroll = Tabs["character"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
     end
 end)
+
+print("[SOLAR] 시선 방향 인지형 3D Fly 엔진 패치 완료!")
+-- ====================================================================
+-- ⚙️ [MISC - SKIN CHANGER RUNNER] (게임 프리징 방지 우회 프로토콜)
+-- ====================================================================
+
+local SkinChangerExecuted = false
+
+local function ExecuteSkinChanger()
+    if SkinChangerExecuted then 
+        print("[SOLAR] Skin Changer가 이미 백엔드에서 구동 중입니다.")
+        return 
+    end
+    
+    SkinChangerExecuted = true
+    print("[SOLAR] Skin Changer 안전 로딩 시작...")
+
+    -- task.spawn을 사용하여 메인 UI 스레드와 분리된 독립 스레드에서 실행합니다.
+    -- 이 방식으로 실행하면 외부 깃허브 코드가 대량의 스킨 데이터를 불러올 때 발생하는 게임 멈춤(Freezing) 현상을 완전히 해결할 수 있습니다.
+    task.spawn(function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))()
+        end)
+        
+        if success then
+            print("[SOLAR] Skin Changer 소스 로드 성공!")
+        else
+            warn("[SOLAR] Skin Changer 로드 실패 (실행기 환경 확인 필요):", err)
+            SkinChangerExecuted = false -- 에러 발생 시 재시도 가능하도록 초기화
+        end
+    end)
+end
+
+
+-- ====================================================================
+-- 📦 [MISC 탭 마운트 구역]
+-- ====================================================================
+
+-- 기존 베이스 반복문이 미리 만들어둔 빈 misc options 상자를 깨끗하게 청소
+if Tabs["misc"] and Tabs["misc"].Left then
+    for _, child in pairs(Tabs["misc"].Left:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+end
+
+-- MISC 탭 왼쪽 스크롤뷰에 진짜 SKIN CHANGER 섹션 생성
+local MiscSection = _G.AddSection(Tabs["misc"].Left, "utility configuration")
+
+-- 토글이 켜지는 순간 프리징 방지 코드가 적용된 깃허브 스크립트가 로드됩니다.
+_G.AddToggle(MiscSection, "skin changer (unlock all)", false, function(state)
+    if state then
+        ExecuteSkinChanger()
+    end
+end)
+
+-- 레이아웃 스크롤 리사이징 자동 갱신
+task.defer(function()
+    local scroll = Tabs["misc"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
+    end
+end)
+
+print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
