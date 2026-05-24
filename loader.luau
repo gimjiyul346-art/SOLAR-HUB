@@ -280,3 +280,74 @@ for _, name in pairs(TabNames) do
 end
 
 print("[SOLAR BASE] UI Base Loaded! Ready for Functions.")
+-- ====================================================================
+-- ⚙️ [최종 통합 엔진: 탭 배치 최적화]
+-- ====================================================================
+
+-- 1. [Silent Aim 핵심 엔진]
+local RS = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local Utility = require(RS.Modules.Utility)
+_G.SilentEnabled = false
+
+local get_players = function()
+    local entities = {}
+    for _, child in pairs(workspace:GetChildren()) do
+        if child:FindFirstChildOfClass("Humanoid") then table.insert(entities, child)
+        elseif child.Name == "HurtEffect" then
+            for _, h in pairs(child:GetChildren()) do if h.ClassName ~= "Highlight" then table.insert(entities, h) end end
+        end
+    end
+    return entities
+end
+
+local oldRaycast = Utility.Raycast
+Utility.Raycast = function(...)
+    local args = {...}
+    if _G.SilentEnabled and #args > 0 and args[4] == 999 then
+        local closest, min = nil, math.huge
+        for _, p in pairs(get_players()) do
+            if p ~= Players.LocalPlayer.Character and p:FindFirstChild("HumanoidRootPart") then
+                local pos, vis = Camera:WorldToViewportPoint(p.HumanoidRootPart.Position)
+                local dist = vis and (Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) - Vector2.new(pos.X, pos.Y)).Magnitude or math.huge
+                if dist < min then min = dist; closest = p end
+            end
+        end
+        if closest and closest:FindFirstChild("Head") then args[3] = closest.Head.Position end
+    end
+    return oldRaycast(unpack(args))
+end
+
+-- 2. [UI 마운트]
+task.spawn(function()
+    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["CHARACTER"] and Tabs["VISUALS"]
+
+    -- MAIN 탭: Silent Aim 포함
+    local M = _G.AddSection(Tabs["main"].Left, "Combat")
+    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
+    _G.AddToggle(M, "Aimbot", false, function(s) _G.Settings.Aimbot = s end)
+    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.Settings.AutoShoot = s end)
+
+    -- CHARACTER 탭: Fly 추가
+    local C = _G.AddSection(Tabs["CHARACTER"].Left, "Movement")
+    _G.AddToggle(C, "Fly", false, function(s) 
+        _G.Flying = s
+        local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
+        hrp.Anchored = s
+    end)
+
+    -- VISUALS 탭: Skin Changer (비동기 로딩으로 멈춤 방지)
+    local V = _G.AddSection(Tabs["VISUALS"].Left, "Cosmetics")
+    _G.AddToggle(V, "Skin Changer", false, function(s) 
+        if s then task.spawn(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end) end 
+    end)
+end)
+
+-- Fly 로직 (RenderStepped)
+game:GetService("RunService").RenderStepped:Connect(function()
+    if _G.Flying then
+        local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
+        hrp.CFrame = hrp.CFrame + (Camera.CFrame.LookVector * 1)
+    end
+end)
