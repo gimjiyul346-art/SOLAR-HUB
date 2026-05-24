@@ -443,28 +443,53 @@ task.defer(function()
 end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
--- [1] 기능 정의 (가장 가벼운 방식)
-_G.SilentAimEnabled = false
-local aimMaxDistance = 100
+-- ====================================================================
+-- ⚙️ [MAIN - SILENT AIM (FINAL STABLE)]
+-- ====================================================================
 
--- [2] 프리징 방지 UI 섹션 (기존 거 지우고 덮어쓰기)
-if Tabs["main"] and Tabs["main"].Left then
-    for _, child in pairs(Tabs["main"].Left:GetChildren()) do
-        if child:IsA("Frame") then child:Destroy() end
+-- 타겟 찾는 가장 가벼운 함수
+local function GetClosestTarget()
+    local closest, min = nil, aimMaxDistance
+    local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
+    if not myPos then return nil end
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.Humanoid.Health > 0 then
+            local dist = (myPos - p.Character.HumanoidRootPart.Position).Magnitude
+            if dist < min then
+                min = dist
+                closest = p.Character.HumanoidRootPart
+            end
+        end
     end
+    return closest
 end
 
-local CustomAimSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
-_G.AddToggle(CustomAimSection, "Silent Aim", false, function(state) _G.SilentAimEnabled = state end)
-_G.AddSlider(CustomAimSection, "target max distance", 30, 300, 100, function(val) aimMaxDistance = val end)
+-- 총 쏠 때 타겟의 머리/몸통으로 좌표를 쏴주는 가장 안전한 방식
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+setreadonly(mt, false)
 
--- [3] 외부 스크립트 실행 (가장 마지막에 배치 - 프리징 예방)
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    if _G.SilentAimEnabled and method == "FindPartOnRayWithIgnoreList" then
+        local target = GetClosestTarget()
+        if target then
+            -- 총알이 발사될 때 타겟 좌표로 레이캐스트를 강제로 꺾어버림
+            args[1] = Ray.new(args[1].Origin, (target.Position - args[1].Origin).Unit * 1000)
+            return oldNamecall(self, unpack(args))
+        end
+    end
+    return oldNamecall(self, ...)
+end)
+setreadonly(mt, true)
+
+-- [마지막] 실행기 프리징 방지 로드 (맨 밑에 놔두기)
 task.spawn(function()
-    task.wait(2) -- UI가 완전히 로딩될 때까지 기다림 (핵심!)
-    local success, err = pcall(function()
+    task.wait(3) 
+    pcall(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))()
     end)
-    if not success then warn("외부 스크립트 로드 대기 중...") end
 end)
-
-print("[SOLAR] 모든 실행기 최적화 완료!")
