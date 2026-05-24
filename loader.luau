@@ -444,71 +444,78 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- [최종 통합 엔진: Rage & Clean ESP]
+-- [최종 통합 엔진 V4: ALL-IN-ONE (Rage & Combat)]
 -- ====================================================================
-
-local RS = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local Camera = workspace.CurrentCamera
-local RunService = game:GetService("RunService")
+local RS, Players, Camera = game:GetService("ReplicatedStorage"), game:GetService("Players"), workspace.CurrentCamera
+local LP = Players.LocalPlayer
 local Utility = require(RS.Modules.Utility)
 
-_G.SilentEnabled = false; _G.RageEnabled = false; _G.Wallbang = false; _G.BoxESP = false
+-- [기능 상태 전역 변수]
+_G.Silent = false; _G.Aim = false; _G.Trigger = false; _G.AntiAim = false; _G.AutoEquip = false; _G.BoxESP = false
 
--- 1. [Raycast: 월뱅 & 헤드 고정 통합 (식별자 검사 무시)]
+-- 1. [Silent Aim: 헤드 고정]
 local old = Utility.Raycast
 Utility.Raycast = function(...)
     local args = {...}
-    -- Wallbang: 필터 무효화
-    if _G.Wallbang and #args > 0 then args[4] = nil end
-    -- Silent Aim: 무조건 헤드 좌표 주입
-    if _G.SilentEnabled and #args > 0 then
+    if _G.Silent and #args > 0 then
         local target = get_closest_player()
         if target and target:FindFirstChild("Head") then args[3] = target.Head.CFrame.Position end
     end
     return old(unpack(args))
 end
 
--- 2. [Rage Bot: 자동 타겟팅 & 자동 사격 & 와리가리]
-RunService.RenderStepped:Connect(function()
-    if _G.RageEnabled then
-        local target = get_closest_player()
-        local lp = Players.LocalPlayer
-        if target and lp.Character then
-            -- 자동 사격
-            local tool = lp.Character:FindFirstChildOfClass("Tool")
-            if tool then tool:Activate() end
-            -- Anti-Aim (와리가리)
-            lp.Character.HumanoidRootPart.CFrame = lp.Character.HumanoidRootPart.CFrame + Vector3.new(math.random(-0.5, 0.5), 0, math.random(-0.5, 0.5))
-        end
+-- 2. [주요 기능 루프: Aimbot, Trigger, Anti-Aim]
+game:GetService("RunService").RenderStepped:Connect(function()
+    local target = get_closest_player()
+    
+    if _G.Aim and target and target:FindFirstChild("Head") then
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Head.CFrame.Position)
+    end
+    
+    if _G.Trigger and target then
+        local tool = LP.Character and LP.Character:FindFirstChildOfClass("Tool")
+        if tool then tool:Activate() end
+    end
+    
+    if _G.AntiAim and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        LP.Character.HumanoidRootPart.CFrame = LP.Character.HumanoidRootPart.CFrame + Vector3.new(math.random(-0.5, 0.5), 0, math.random(-0.5, 0.5))
     end
 end)
 
 -- 3. [ESP: 테두리만 있는 깔끔한 박스]
-local box = Drawing.new("Square")
-box.Visible = false
-box.Thickness = 1
-box.Filled = false -- [중요: 안 채움]
-box.Color = Color3.fromRGB(255, 255, 255)
-
-RunService.RenderStepped:Connect(function()
+local box = Drawing.new("Square"); box.Visible = false; box.Thickness = 1; box.Filled = false; box.Color = Color3.new(1, 1, 1)
+game:GetService("RunService").RenderStepped:Connect(function()
     local target = get_closest_player()
     if _G.BoxESP and target and target:FindFirstChild("HumanoidRootPart") then
         local pos, onScreen = Camera:WorldToViewportPoint(target.HumanoidRootPart.Position)
         if onScreen then
-            box.Visible = true
-            box.Position = Vector2.new(pos.X - 30, pos.Y - 50)
-            box.Size = Vector2.new(60, 100)
+            box.Visible = true; box.Position = Vector2.new(pos.X - 30, pos.Y - 50); box.Size = Vector2.new(60, 100)
         else box.Visible = false end
     else box.Visible = false end
 end)
 
--- 4. [UI 통합]
+-- 4. [Auto Equip]
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+    if not gpe and _G.AutoEquip then
+        for _, item in pairs(LP.Backpack:GetChildren()) do
+            if item:IsA("Tool") then item.Parent = LP.Character end
+        end
+    end
+end)
+
+-- 5. [UI 통합]
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"]
-    local M = _G.AddSection(Tabs["main"].Left, "Rage Control")
-    _G.AddToggle(M, "Silent Aim (Head)", false, function(s) _G.SilentEnabled = s end)
-    _G.AddToggle(M, "Wallbang", false, function(s) _G.Wallbang = s end)
-    _G.AddToggle(M, "Rage Bot (Auto Kill)", false, function(s) _G.RageEnabled = s end)
-    _G.AddToggle(M, "Box ESP", false, function(s) _G.BoxESP = s end)
+    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"] and Tabs["misc"]
+    
+    local M = _G.AddSection(Tabs["main"].Left, "Combat")
+    _G.AddToggle(M, "Silent Aim", false, function(s) _G.Silent = s end)
+    _G.AddToggle(M, "Aimbot", false, function(s) _G.Aim = s end)
+    _G.AddToggle(M, "Triggerbot", false, function(s) _G.Trigger = s end)
+    _G.AddToggle(M, "Anti-Aim", false, function(s) _G.AntiAim = s end)
+    
+    local E = _G.AddSection(Tabs["esp"].Left, "ESP")
+    _G.AddToggle(E, "Box ESP", false, function(s) _G.BoxESP = s end)
+    
+    local I = _G.AddSection(Tabs["misc"].Left, "Utility")
+    _G.AddToggle(I, "Auto Equip", false, function(s) _G.AutoEquip = s end)
 end)
