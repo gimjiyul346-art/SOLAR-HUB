@@ -280,282 +280,8 @@ for _, name in pairs(TabNames) do
 end
 
 print("[SOLAR BASE] UI Base Loaded! Ready for Functions.")
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local RunService = game:GetService("RunService")
-
--- [[ 1. 중복 실행 및 예전 UI 정리 ]]
-if _G.SolarConnections then
-    for _, conn in pairs(_G.SolarConnections) do
-        if conn then conn:Disconnect() end
-    end
-end
-_G.SolarConnections = {}
-
-for _, v in pairs(CoreGui:GetChildren()) do
-    if v.Name == "SOLAR_PREMIUM_UE" then v:Destroy() end
-end
-
--- [[ 2. 최상위 GUI 스크린 생성 ]]
-local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "SOLAR_PREMIUM_UE"
-ScreenGui.DisplayOrder = 999
-
--- [[ 3. 메인 백그라운드 프레임 ]]
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 550, 0, 440)
-MainFrame.Position = UDim2.new(0.5, -275, 0.5, -220)
-MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
-MainFrame.BorderSizePixel = 1
-MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
-MainFrame.Active = true
-MainFrame.Draggable = true
-
--- 상단 타이틀 바 고정
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, -15, 0, 25)
-Title.Position = UDim2.new(0, 12, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "SOLAR HUB V1 - discord.gg/VtPuHZQt8y"
-Title.TextColor3 = Color3.fromRGB(255, 0, 50)
-Title.Font = Enum.Font.Code
-Title.TextSize = 11
-Title.TextXAlignment = Enum.TextXAlignment.Left
-
--- [[ 4. 7대 탭 메뉴 바 디자인 ]]
-local TabBar = Instance.new("Frame", MainFrame)
-TabBar.Size = UDim2.new(1, -24, 0, 26)
-TabBar.Position = UDim2.new(0, 12, 0, 25)
-TabBar.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-TabBar.BorderSizePixel = 1
-TabBar.BorderColor3 = Color3.fromRGB(35, 35, 35)
-
-local TabListLayout = Instance.new("UIListLayout", TabBar)
-TabListLayout.FillDirection = Enum.FillDirection.Horizontal
-TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabListLayout.Padding = UDim.new(0, 2)
-
--- 콘텐츠 렌더링 프레임
-local ContentFrame = Instance.new("Frame", MainFrame)
-ContentFrame.Size = UDim2.new(1, -24, 1, -65)
-ContentFrame.Position = UDim2.new(0, 12, 0, 55)
-ContentFrame.BackgroundTransparency = 1
-
--- [[ 5. 탭 페이지 및 내부 스크롤뷰 생성 빌더 ]]
-local Tabs = {}
-local function CreateTabPages(tabName)
-    local Page = Instance.new("Frame", ContentFrame)
-    Page.Name = tabName .. "Page"
-    Page.Size = UDim2.new(1, 0, 1, 0)
-    Page.BackgroundTransparency = 1
-    Page.Visible = false
-    
-    local LeftScroll = Instance.new("ScrollingFrame", Page)
-    LeftScroll.Name = "Left"
-    LeftScroll.Size = UDim2.new(0.5, -5, 1, 0)
-    LeftScroll.BackgroundTransparency = 1
-    LeftScroll.BorderSizePixel = 0
-    LeftScroll.ScrollBarThickness = 2
-    LeftScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 0, 50)
-    LeftScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    local L_Layout = Instance.new("UIListLayout", LeftScroll)
-    L_Layout.Padding = UDim.new(0, 10)
-    
-    local RightScroll = Instance.new("ScrollingFrame", Page)
-    RightScroll.Name = "Right"
-    RightScroll.Size = UDim2.new(0.5, -5, 1, 0)
-    RightScroll.Position = UDim2.new(0.5, 5, 0, 0)
-    RightScroll.BackgroundTransparency = 1
-    RightScroll.BorderSizePixel = 0
-    RightScroll.ScrollBarThickness = 2
-    RightScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 0, 50)
-    RightScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    local R_Layout = Instance.new("UIListLayout", RightScroll)
-    R_Layout.Padding = UDim.new(0, 10)
-
-    Tabs[tabName] = {Left = LeftScroll, Right = RightScroll, Page = Page}
-end
-
-local TabNames = {"main", "world", "esp", "visuals", "character", "misc", "setting"}
-for i, name in ipairs(TabNames) do CreateTabPages(name) end
-
--- 탭 버튼 클릭 전환 시스템
-local function SetupTabButton(name, order)
-    local TabBtn = Instance.new("TextButton", TabBar)
-    TabBtn.Size = UDim2.new(0, 72, 1, 0)
-    TabBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-    TabBtn.BorderSizePixel = 0
-    TabBtn.Text = name:upper()
-    TabBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    TabBtn.Font = Enum.Font.Code
-    TabBtn.TextSize = 10
-    TabBtn.LayoutOrder = order
-
-    TabBtn.MouseButton1Click:Connect(function()
-        for _, t in pairs(Tabs) do t.Page.Visible = false end
-        for _, b in pairs(TabBar:GetChildren()) do
-            if b:IsA("TextButton") then b.TextColor3 = Color3.fromRGB(150, 150, 150) end
-        end
-        Tabs[name].Page.Visible = true
-        TabBtn.TextColor3 = Color3.fromRGB(255, 0, 50)
-    end)
-end
-
-for i, name in ipairs(TabNames) do SetupTabButton(name, i) end
-Tabs["main"].Page.Visible = true
-TabBar:GetChildren()[2].TextColor3 = Color3.fromRGB(255, 0, 50)
-
-
--- [[ 6. 🛠️ UI 요소를 그려주는 컴포넌트 렌더링 함수 ]]
-local function AddSection(parent, titleName)
-    local SectionFrame = Instance.new("Frame", parent)
-    SectionFrame.Size = UDim2.new(1, -5, 0, 150)
-    SectionFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-    SectionFrame.BorderSizePixel = 1
-    SectionFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
-    
-    local SecTitle = Instance.new("TextLabel", SectionFrame)
-    SecTitle.Size = UDim2.new(1, -10, 0, 18)
-    SecTitle.Position = UDim2.new(0, 8, 0, 2)
-    SecTitle.BackgroundTransparency = 1
-    SecTitle.Text = titleName:lower()
-    SecTitle.TextColor3 = Color3.fromRGB(255, 0, 50)
-    SecTitle.Font = Enum.Font.Code
-    SecTitle.TextSize = 11
-    SecTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local Container = Instance.new("Frame", SectionFrame)
-    Container.Size = UDim2.new(1, -10, 1, -25)
-    Container.Position = UDim2.new(0, 5, 0, 22)
-    Container.BackgroundTransparency = 1
-    local C_Layout = Instance.new("UIListLayout", Container)
-    C_Layout.Padding = UDim.new(0, 6)
-    
-    -- 콘텐츠 양에 따라 스크롤 캔버스 자동 조절
-    parent.CanvasSize = UDim2.new(0, 0, 0, parent.UIListLayout.AbsoluteContentSize.Y + 20)
-    
-    return Container
-end
-
-local function AddToggle(section, text, default, callback)
-    local Row = Instance.new("Frame", section)
-    Row.Size = UDim2.new(1, 0, 0, 20)
-    Row.BackgroundTransparency = 1
-    
-    local Box = Instance.new("TextButton", Row)
-    Box.Size = UDim2.new(0, 14, 0, 14)
-    Box.Position = UDim2.new(0, 5, 0.5, -7)
-    Box.BorderSizePixel = 1
-    Box.BorderColor3 = Color3.fromRGB(50, 50, 50)
-    Box.Text = ""
-    Box.BackgroundColor3 = default and Color3.fromRGB(255, 0, 50) or Color3.fromRGB(24, 24, 24)
-    
-    local Label = Instance.new("TextLabel", Row)
-    Label.Size = UDim2.new(1, -30, 1, 0)
-    Label.Position = UDim2.new(0, 26, 0, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = text:lower()
-    Label.TextColor3 = Color3.fromRGB(180, 180, 180)
-    Label.Font = Enum.Font.Code
-    Label.TextSize = 11
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local state = default
-    Box.MouseButton1Click:Connect(function()
-        state = not state
-        Box.BackgroundColor3 = state and Color3.fromRGB(255, 0, 50) or Color3.fromRGB(24, 24, 24)
-        callback(state)
-    end)
-end
-
-local function AddSlider(section, text, min, max, default, callback)
-    local SliderRow = Instance.new("Frame", section)
-    SliderRow.Size = UDim2.new(1, 0, 0, 35)
-    SliderRow.BackgroundTransparency = 1
-
-    local Label = Instance.new("TextLabel", SliderRow)
-    Label.Size = UDim2.new(1, 0, 0, 14)
-    Label.Position = UDim2.new(0, 5, 0, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = text:lower()
-    Label.TextColor3 = Color3.fromRGB(180, 180, 180)
-    Label.Font = Enum.Font.Code
-    Label.TextSize = 11
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-
-    local ValueLabel = Instance.new("TextLabel", SliderRow)
-    ValueLabel.Size = UDim2.new(1, -10, 0, 14)
-    ValueLabel.Position = UDim2.new(0, 0, 0, 0)
-    ValueLabel.BackgroundTransparency = 1
-    ValueLabel.Text = default .. " / " .. max
-    ValueLabel.TextColor3 = Color3.fromRGB(255, 0, 50)
-    ValueLabel.Font = Enum.Font.Code
-    ValueLabel.TextSize = 11
-    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-    local Track = Instance.new("TextButton", SliderRow)
-    Track.Size = UDim2.new(1, -10, 0, 8)
-    Track.Position = UDim2.new(0, 5, 0, 18)
-    Track.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    Track.BorderSizePixel = 1
-    Track.BorderColor3 = Color3.fromRGB(45, 45, 45)
-    Track.Text = ""
-
-    local Fill = Instance.new("Frame", Track)
-    Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-    Fill.BackgroundColor3 = Color3.fromRGB(255, 0, 50)
-    Fill.BorderSizePixel = 0
-
-    local SetValue = function(input)
-        local l = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-        Fill.Size = UDim2.new(l, 0, 1, 0)
-        local val = math.floor(min + (max - min) * l)
-        ValueLabel.Text = val .. " / " .. max
-        callback(val)
-    end
-
-    local IsDragging = false
-    Track.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            IsDragging = true; SetValue(input)
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if IsDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            SetValue(input)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            IsDragging = false
-        end
-    end)
-end
-
--- 마스터 토글 버튼 (화면 왼쪽 위)
-local ToggleBtn = Instance.new("TextButton", ScreenGui)
-ToggleBtn.Name = "UIToggleButton"
-ToggleBtn.Size = UDim2.new(0, 45, 0, 30)
-ToggleBtn.Position = UDim2.new(0, 15, 0, 15)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-ToggleBtn.Text = "SOLAR"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextSize = 11
-ToggleBtn.BorderSizePixel = 1
-ToggleBtn.BorderColor3 = Color3.fromRGB(255, 0, 50)
-
-ToggleBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-end)
-
-
 -- ====================================================================
--- ⚙️ [백엔드 실제 기능 작동 엔진] - 실시간 글로벌 변수 연동
+-- ⚙️ [백엔드 실제 구동 엔진] - 글로벌 변수 및 최적화 루틴
 -- ====================================================================
 
 _G.SilentAimEnabled = false
@@ -563,7 +289,7 @@ _G.AimbotFOV = 120
 _G.FlyEnabled = false
 local FlySpeed = 50
 
--- [1] 에임 범위 FOV 원 드로잉
+-- [1] 에임 범위 FOV 원 드로잉 (PC/모바일 공용 시각화)
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
 FOVCircle.Color = Color3.fromRGB(255, 0, 50)
@@ -577,7 +303,7 @@ table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
     FOVCircle.Position = UserInputService:GetMouseLocation()
 end))
 
--- [2] 최적 타겟 연산 함수
+-- [2] 최적 타겟 연산 함수 (가장 가까운 적 머리 조준)
 local function GetClosestTarget()
     local Closest = nil
     local MaxDist = _G.AimbotFOV
@@ -601,38 +327,37 @@ local function GetClosestTarget()
     return Closest
 end
 
--- [3] Silent Aim 메타테이블 가로채기 (총알 조작 핵)
-local Meta = getrawmetatable(game)
-local OldIndex = Meta.__index
-setreadonly(Meta, false)
-
-Meta.__index = newcstackclosure(function(Self, Key)
-    if _G.SilentAimEnabled and tostring(Self) == "Mouse" and Key == "Hit" then
+-- [3] 실행기 보안 우회형 Silent Aim 로직
+-- 메타테이블 후킹이 막힌 모바일 실행기에서도 작동하도록 카메라 및 투사체 궤적 보정 방식 적용
+table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
+    if _G.SilentAimEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
         local Target = GetClosestTarget()
         if Target then
-            return Target.CFrame
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, Target.Position)
         end
     end
-    return OldIndex(Self, Key)
-end)
-setreadonly(Meta, true)
+end))
 
--- [4] 하이브리드 Fly 엔진 (키보드 + 모바일 조이스틱 동시 연동)
+-- [4] CFrame 좌표 연산 기반 무충돌 Fly 시스템
+-- 물리엔진(Velocity)을 타지 않아 밴 위험이 적고 모바일 조이스틱과 완벽하게 1:1 연동됨
 table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
     if _G.FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local HRP = LocalPlayer.Character.HumanoidRootPart
-        local MoveDirection = Vector3.new(0, 0, 0)
         local Hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        local MoveDirection = Vector3.new(0, 0, 0)
         
+        -- PC 키보드 감지
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then MoveDirection = MoveDirection + Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then MoveDirection = MoveDirection - Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then MoveDirection = MoveDirection - Camera.CFrame.RightVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then MoveDirection = MoveDirection + Camera.CFrame.RightVector end
         
+        -- 모바일 가상 조이스틱 무빙값 실시간 패싱
         if Hum and Hum.MoveDirection.Magnitude > 0 then
             MoveDirection = MoveDirection + Hum.MoveDirection
         end
         
+        -- 수직 고도 제어 (PC: 스페이스바 / 모바일: 점프 버튼 감지)
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) or (Hum and Hum.Jump) then 
             MoveDirection = MoveDirection + Vector3.new(0, 1, 0) 
         end
@@ -640,4 +365,58 @@ table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
             MoveDirection = MoveDirection - Vector3.new(0, 1, 0) 
         end
         
+        HRP.Velocity = Vector3.new(0, 0, 0) -- 물리 튕김 레그 현상 강제 차단
         if MoveDirection.Magnitude > 0 then
+            HRP.CFrame = HRP.CFrame + (MoveDirection.Unit * (FlySpeed / 60))
+        end
+    end
+end))
+
+-- 비행 중 벽 끼임으로 인한 튕김 방지 패시브 (Noclip)
+table.insert(_G.SolarConnections, RunService.Stepped:Connect(function()
+    if _G.FlyEnabled and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetChildren()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end))
+
+
+-- ====================================================================
+-- 🛠️ [기능 렌더링 마운트] 형이 만든 글로벌 UI 함수 호출 연동 구역
+-- ====================================================================
+
+-- 1. MAIN 탭 스크롤뷰 내부에 에임 컴포넌트 실제 배치
+-- 기존에 자동으로 들어가던 빈 options 섹션 외에 실제 전투 섹션을 왼쪽(Left)에 얹어줍니다.
+local MainSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
+_G.AddToggle(MainSection, "silent aim lock", false, function(state) 
+    _G.SilentAimEnabled = state 
+end)
+_G.AddToggle(MainSection, "render fov scope", false, function(state) 
+    FOVCircle.Visible = state 
+end)
+_G.AddSlider(MainSection, "fov diameter", 30, 500, 120, function(val) 
+    _G.AimbotFOV = val 
+end)
+
+-- 2. CHARACTER 탭 스크롤뷰 내부에 비행 컴포넌트 실제 배치
+local CharacterSection = _G.AddSection(Tabs["character"].Left, "character configuration")
+_G.AddToggle(CharacterSection, "cross-platform fly", false, function(state) 
+    _G.FlyEnabled = state 
+end)
+_G.AddSlider(CharacterSection, "fly velocity speed", 20, 200, 50, function(val) 
+    FlySpeed = val 
+end)
+
+-- 각 스크롤 캔버스 사이즈가 버튼 크기에 맞게 밀리지 않도록 자동 갱신 유도
+task.defer(function()
+    if Tabs["main"].Left:FindFirstChild("UIListLayout") then
+        Tabs["main"].Left.CanvasSize = UDim2.new(0, 0, 0, Tabs["main"].Left.UIListLayout.AbsoluteContentSize.Y + 20)
+    end
+    if Tabs["character"].Left:FindFirstChild("UIListLayout") then
+        Tabs["character"].Left.CanvasSize = UDim2.new(0, 0, 0, Tabs["character"].Left.UIListLayout.AbsoluteContentSize.Y + 20)
+    end
+end)
+
+print("[SOLAR COUPLING] 기존 UI 베이스에 메인 에임 엔진 & 캐릭터 플라이 완벽 마운트 완료!")
+
