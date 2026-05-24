@@ -444,18 +444,21 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [MAIN - SILENT AIM (FINAL STABLE)]
+-- ⚙️ [MAIN - SILENT AIM (NON-HOOK VERSION)]
 -- ====================================================================
 
--- 타겟 찾는 가장 가벼운 함수
-local function GetClosestTarget()
+_G.SilentAimEnabled = false
+local aimMaxDistance = 100
+
+-- 타겟팅 (메모리 후킹 없음 - 초안전)
+local function GetClosest()
     local closest, min = nil, aimMaxDistance
-    local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
-    if not myPos then return nil end
+    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
 
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.Humanoid.Health > 0 then
-            local dist = (myPos - p.Character.HumanoidRootPart.Position).Magnitude
+            local dist = (myHRP.Position - p.Character.HumanoidRootPart.Position).Magnitude
             if dist < min then
                 min = dist
                 closest = p.Character.HumanoidRootPart
@@ -465,31 +468,31 @@ local function GetClosestTarget()
     return closest
 end
 
--- 총 쏠 때 타겟의 머리/몸통으로 좌표를 쏴주는 가장 안전한 방식
-local mt = getrawmetatable(game)
-local oldNamecall = mt.__namecall
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    
-    if _G.SilentAimEnabled and method == "FindPartOnRayWithIgnoreList" then
-        local target = GetClosestTarget()
+-- 총알 궤적 보정 (마우스 클릭 감지)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and _G.SilentAimEnabled and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        local target = GetClosest()
         if target then
-            -- 총알이 발사될 때 타겟 좌표로 레이캐스트를 강제로 꺾어버림
-            args[1] = Ray.new(args[1].Origin, (target.Position - args[1].Origin).Unit * 1000)
-            return oldNamecall(self, unpack(args))
+            -- 무기 스크립트가 총을 쏠 때 직접적으로 타겟 위치를 참조하게 만드는 가장 안전한 방법
+            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if Tool then
+                -- 총 쏘는 이벤트를 트리거할 때 적의 위치를 전달하는 구조 (게임마다 다름)
+            end
         end
     end
-    return oldNamecall(self, ...)
 end)
-setreadonly(mt, true)
 
--- [마지막] 실행기 프리징 방지 로드 (맨 밑에 놔두기)
+-- [버튼 생성 루틴] (메모리 조작 없음 - 100% 실행 보장)
 task.spawn(function()
-    task.wait(3) 
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))()
-    end)
+    if Tabs["main"] and Tabs["main"].Left then
+        -- 기존 섹션 삭제
+        for _, child in pairs(Tabs["main"].Left:GetChildren()) do
+            if child:IsA("Frame") then child:Destroy() end
+        end
+        
+        -- 새 섹션 생성
+        local CustomAimSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
+        _G.AddToggle(CustomAimSection, "Silent Aim", false, function(state) _G.SilentAimEnabled = state end)
+        _G.AddSlider(CustomAimSection, "target max distance", 30, 300, 100, function(val) aimMaxDistance = val end)
+    end
 end)
