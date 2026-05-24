@@ -381,3 +381,65 @@ task.defer(function()
 end)
 
 print("[SOLAR] 시선 방향 인지형 3D Fly 엔진 패치 완료!")
+-- ====================================================================
+-- ⚙️ [MISC - SKIN CHANGER RUNNER] (게임 프리징 방지 우회 프로토콜)
+-- ====================================================================
+
+local SkinChangerExecuted = false
+
+local function ExecuteSkinChanger()
+    if SkinChangerExecuted then 
+        print("[SOLAR] Skin Changer가 이미 백엔드에서 구동 중입니다.")
+        return 
+    end
+    
+    SkinChangerExecuted = true
+    print("[SOLAR] Skin Changer 안전 로딩 시작...")
+
+    -- task.spawn을 사용하여 메인 UI 스레드와 분리된 독립 스레드에서 실행합니다.
+    -- 이 방식으로 실행하면 외부 깃허브 코드가 대량의 스킨 데이터를 불러올 때 발생하는 게임 멈춤(Freezing) 현상을 완전히 해결할 수 있습니다.
+    task.spawn(function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))()
+        end)
+        
+        if success then
+            print("[SOLAR] Skin Changer 소스 로드 성공!")
+        else
+            warn("[SOLAR] Skin Changer 로드 실패 (실행기 환경 확인 필요):", err)
+            SkinChangerExecuted = false -- 에러 발생 시 재시도 가능하도록 초기화
+        end
+    end)
+end
+
+
+-- ====================================================================
+-- 📦 [MISC 탭 마운트 구역]
+-- ====================================================================
+
+-- 기존 베이스 반복문이 미리 만들어둔 빈 misc options 상자를 깨끗하게 청소
+if Tabs["misc"] and Tabs["misc"].Left then
+    for _, child in pairs(Tabs["misc"].Left:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+end
+
+-- MISC 탭 왼쪽 스크롤뷰에 진짜 SKIN CHANGER 섹션 생성
+local MiscSection = _G.AddSection(Tabs["misc"].Left, "utility configuration")
+
+-- 토글이 켜지는 순간 프리징 방지 코드가 적용된 깃허브 스크립트가 로드됩니다.
+_G.AddToggle(MiscSection, "skin changer (unlock all)", false, function(state)
+    if state then
+        ExecuteSkinChanger()
+    end
+end)
+
+-- 레이아웃 스크롤 리사이징 자동 갱신
+task.defer(function()
+    local scroll = Tabs["misc"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
+    end
+end)
+
+print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
