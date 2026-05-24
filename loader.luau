@@ -444,24 +444,52 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [최종 통합: Silent Aim + UI Control]
+-- ⚙️ [최종 통합 엔진: 탭별 독립 구성]
 -- ====================================================================
 
--- 1. [Silent Aim 핵심 로직]
-local replicated_storage = game:GetService("ReplicatedStorage");
-local players = game:GetService("Players");
+_G.Settings = {SkinChanger = false, Aimbot = false, AutoShoot = false, AutoFarm = false, VoidSpam = false, InfiniteJump = false}
+
+-- 1. 기능 로직
+game:GetService("RunService").RenderStepped:Connect(function()
+    local lp = game.Players.LocalPlayer
+    if _G.Settings.VoidSpam and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+        if lp.Character.HumanoidRootPart.Position.Y < -500 then lp.Character.HumanoidRootPart.CFrame = CFrame.new(0, 50, 0) end
+    end
+    
+    if _G.Settings.AutoShoot then
+        local tool = lp.Character and lp.Character:FindFirstChildOfClass("Tool")
+        if tool then tool:Activate() end
+    end
+end)
+
+-- 점프 및 이동속도/점프력은 UI 슬라이더에서 직접 처리되도록 구성
+
+-- 2. UI 마운트 (모든 실행기 호환형)
+task.spawn(function()
+    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"] and Tabs["misc"]
+
+    -- [MAIN 탭]
+    local M = _G.AddSection(Tabs["main"].Left, "Combat")
+    _G.AddToggle(M, "Aimbot", false, function(s) _G.Settings.Aimbot = s end)
+    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.Settings.AutoShoot = s end)
+    _G.AddToggle(M, "Auto Farm", false, function(s) _G.Settings.AutoFarm = s end)
+    _G.AddToggle(M, "Void Spam", false, function(s) _G.Settings.VoidSpam = s end)
+    _G.AddSlider(M, "WalkSpeed", 16, 100, 16, function(v) if game.Players.LocalPlayer.Character then game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = v end end)
+    _G.AddSlider(M, "JumpPower", 50, 200, 50, function(v) if game.Players.LocalPlayer.Character then game.Players.LocalPlayer.Character.Humanoid.JumpPower = v end end)
+    _G.AddSlider(M, "silent aim", local replicated_storage = game.GetService(game, "ReplicatedStorage");
+local players = game.GetService(game, "Players");
+
 local camera = workspace.CurrentCamera;
 local utility = require(replicated_storage.Modules.Utility);
 
-_G.SilentEnabled = false -- 버튼으로 제어될 스위치
-
-local get_players = function()
+local get_players = function() -- this is dumb asf, feel free to modify.
     local entities = {};
-    for _, child in workspace:GetChildren() do
-        if child:FindFirstChildOfClass("Humanoid") then
+
+    for _, child in workspace.GetChildren(workspace) do
+        if child.FindFirstChildOfClass(child, "Humanoid") then
             table.insert(entities, child);
         elseif child.Name == "HurtEffect" then
-            for _, hurt_player in child:GetChildren() do
+            for _, hurt_player in child.GetChildren(child) do
                 if (hurt_player.ClassName ~= "Highlight") then
                     table.insert(entities, hurt_player);
                 end
@@ -470,54 +498,69 @@ local get_players = function()
     end
     return entities
 end
-
 local get_closest_player = function()
     local closest, closest_distance = nil, math.huge;
     local character = players.LocalPlayer.Character;
-    if (character == nil) then return; end
+
+    if (character == nil) then
+        return;
+    end
+
     for _, player in get_players() do
-        if (player == players.LocalPlayer) then continue; end
-        if (not player:FindFirstChild("HumanoidRootPart")) then continue; end
-        local position, on_screen = camera:WorldToViewportPoint(player.HumanoidRootPart.Position);
-        if (on_screen == false) then continue; end
+        if (player == players.LocalPlayer) then
+            continue;
+        end
+
+        if (not player:FindFirstChild("HumanoidRootPart")) then
+            continue;
+        end
+
+        local position, on_screen = camera.WorldToViewportPoint(camera, player.HumanoidRootPart.Position);
+
+        if (on_screen == false) then
+            continue;
+        end
+
         local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
         local distance = (center - Vector2.new(position.X, position.Y)).Magnitude;
-        if (distance > closest_distance) then continue; end
+
+        if (distance > closest_distance) then
+            continue;
+        end
+
         closest = player;
         closest_distance = distance;
     end
     return closest;
 end
 
-local old = utility.Raycast; 
-utility.Raycast = function(...)
+local old = utility.Raycast; utility.Raycast = function(...)
     local arguments = {...};
-    -- 버튼이 켜져 있을 때만 작동
-    if _G.SilentEnabled and (#arguments > 0 and arguments[4] == 999) then
+
+    if (#arguments > 0 and arguments[4] == 999) then
         local closest = get_closest_player();
+
         if (closest) then
             arguments[3] = closest.Head.Position;
         end
     end
     return old(table.unpack(arguments));
 end
+    -- [ESP 탭]
+    local E = _G.AddSection(Tabs["esp"].Left, "ESP")
+    _G.AddToggle(E, "Box ESP", false, function(s) _G.BoxESP = s end)
+    _G.AddToggle(E, "Name ESP", false, function(s) _G.NameESP = s end)
+    _G.AddToggle(E, "Health Bar", false, function(s) _G.HealthESP = s end)
 
--- 2. [UI 마운트 - 기존 기능 + Silent Aim]
-task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["MAIN"] and Tabs["ESP"] and Tabs["MISC"]
-    
-    local M = _G.AddSection(Tabs["MAIN"].Left, "Combat")
-    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
-    _G.AddToggle(M, "Infinite Jump", false, function(s) _G.InfiniteJump = s end)
-    _G.AddSlider(M, "WalkSpeed", 16, 100, 16, function(v) if game.Players.LocalPlayer.Character then game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = v end end)
-    
-    local I = _G.AddSection(Tabs["MISC"].Left, "Misc")
+    -- [MISC 탭]
+    local I = _G.AddSection(Tabs["misc"].Left, "Misc")
     _G.AddToggle(I, "Skin Changer", false, function(s) 
         if s then loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end 
     end)
+    _G.AddToggle(I, "Infinite Jump", false, function(s) _G.Settings.InfiniteJump = s end)
 end)
 
--- 3. [이벤트 핸들러]
+-- 3. 무한 점프 이벤트
 game:GetService("UserInputService").JumpRequest:Connect(function()
-    if _G.InfiniteJump then game.Players.LocalPlayer.Character.Humanoid:ChangeState("Jumping") end
+    if _G.Settings.InfiniteJump then game.Players.LocalPlayer.Character.Humanoid:ChangeState("Jumping") end
 end)
