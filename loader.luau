@@ -444,32 +444,63 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [MAIN - SILENT AIM (FORCE MOUNT)]
+-- ⚙️ [MAIN - COMBAT & FARM (SAFE VERSION)]
 -- ====================================================================
 
-_G.SilentAimEnabled = false
-local aimMaxDistance = 100
+_G.CombatEnabled = false
+_G.AutoFarmEnabled = false
 
--- 버튼이 뜰 때까지 루프를 돌며 기다리는 확실한 방법
-task.spawn(function()
-    -- Tabs["main"]이 생성될 때까지 기다림
-    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["main"].Left
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
-    -- 버튼 생성
-    local CustomAimSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
-    _G.AddToggle(CustomAimSection, "Silent Aim", false, function(state) 
-        _G.SilentAimEnabled = state 
-    end)
-    _G.AddSlider(CustomAimSection, "target max distance", 30, 300, 100, function(val) 
-        aimMaxDistance = val 
-    end)
-    
-    print("[SOLAR] Silent Aim 버튼 강제 마운트 성공!")
+-- 타겟팅 함수 (가장 가까운 사람)
+local function GetClosestTarget()
+    local closest, min = nil, 200
+    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
+            local dist = (myHRP.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if dist < min then
+                min = dist
+                closest = p.Character
+            end
+        end
+    end
+    return closest
+end
+
+-- [메인 루프: 에임봇 + 오토슈팅 + 텔레포트]
+RunService.RenderStepped:Connect(function()
+    local target = GetClosestTarget()
+    if target and target:FindFirstChild("Head") then
+        -- 1. 에임봇 (조준선이 적에 닿으면 락온)
+        if _G.CombatEnabled then
+            local camera = workspace.CurrentCamera
+            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Head.Position)
+            
+            -- 2. 오토 슈팅
+            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if Tool then
+                Tool:Activate()
+            end
+        end
+
+        -- 3. 오토 팜 (머리 위 텔레포트)
+        if _G.AutoFarmEnabled and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0)
+        end
+    end
 end)
 
--- 기능 로직 (마우스 클릭 시 타겟팅)
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if not gpe and _G.SilentAimEnabled and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-        -- (기능 로직 자리)
-    end
+-- [버튼 생성: 탭 생성 보장]
+task.spawn(function()
+    repeat task.wait(0.5) until Tabs and Tabs["main"]
+    
+    local Section = _G.AddSection(Tabs["main"].Left, "combat & farm")
+    _G.AddToggle(Section, "Aimbot + Auto Shoot", false, function(state) _G.CombatEnabled = state end)
+    _G.AddToggle(Section, "Auto Farm (Head TP)", false, function(state) _G.AutoFarmEnabled = state end)
 end)
