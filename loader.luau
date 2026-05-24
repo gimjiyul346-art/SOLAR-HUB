@@ -444,55 +444,32 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [MAIN - SILENT AIM (NON-HOOK VERSION)]
+-- ⚙️ [MAIN - SILENT AIM (FORCE MOUNT)]
 -- ====================================================================
 
 _G.SilentAimEnabled = false
 local aimMaxDistance = 100
 
--- 타겟팅 (메모리 후킹 없음 - 초안전)
-local function GetClosest()
-    local closest, min = nil, aimMaxDistance
-    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
+-- 버튼이 뜰 때까지 루프를 돌며 기다리는 확실한 방법
+task.spawn(function()
+    -- Tabs["main"]이 생성될 때까지 기다림
+    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["main"].Left
 
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.Humanoid.Health > 0 then
-            local dist = (myHRP.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if dist < min then
-                min = dist
-                closest = p.Character.HumanoidRootPart
-            end
-        end
-    end
-    return closest
-end
-
--- 총알 궤적 보정 (마우스 클릭 감지)
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if not gpe and _G.SilentAimEnabled and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-        local target = GetClosest()
-        if target then
-            -- 무기 스크립트가 총을 쏠 때 직접적으로 타겟 위치를 참조하게 만드는 가장 안전한 방법
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                -- 총 쏘는 이벤트를 트리거할 때 적의 위치를 전달하는 구조 (게임마다 다름)
-            end
-        end
-    end
+    -- 버튼 생성
+    local CustomAimSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
+    _G.AddToggle(CustomAimSection, "Silent Aim", false, function(state) 
+        _G.SilentAimEnabled = state 
+    end)
+    _G.AddSlider(CustomAimSection, "target max distance", 30, 300, 100, function(val) 
+        aimMaxDistance = val 
+    end)
+    
+    print("[SOLAR] Silent Aim 버튼 강제 마운트 성공!")
 end)
 
--- [버튼 생성 루틴] (메모리 조작 없음 - 100% 실행 보장)
-task.spawn(function()
-    if Tabs["main"] and Tabs["main"].Left then
-        -- 기존 섹션 삭제
-        for _, child in pairs(Tabs["main"].Left:GetChildren()) do
-            if child:IsA("Frame") then child:Destroy() end
-        end
-        
-        -- 새 섹션 생성
-        local CustomAimSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
-        _G.AddToggle(CustomAimSection, "Silent Aim", false, function(state) _G.SilentAimEnabled = state end)
-        _G.AddSlider(CustomAimSection, "target max distance", 30, 300, 100, function(val) aimMaxDistance = val end)
+-- 기능 로직 (마우스 클릭 시 타겟팅)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and _G.SilentAimEnabled and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        -- (기능 로직 자리)
     end
 end)
