@@ -444,57 +444,52 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [SOLAR HUB - 통합 전투/팜/ESP 시스템]
+-- [Solar Hub + Silent Aim 통합 엔진]
+-- 기존 코드 싹 다 지우고 이것만 넣으세요.
 -- ====================================================================
 
--- [기능 상태값]
-_G.Settings = {Aimbot = false, AutoShoot = false, AutoFarm = false, BoxESP = false, NameESP = false, HealthBar = false, InfiniteJump = false}
+local RS = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local Utility = require(RS.Modules.Utility)
 
--- [메인 루프 (최적화 안해도 됨!)]
-game:GetService("RunService").RenderStepped:Connect(function()
-    local lp = game.Players.LocalPlayer
-    local target = nil; local dist = 500
+_G.SilentAim = false
 
-    -- 1. 타겟팅
-    for _, p in pairs(game.Players:GetPlayers()) do
-        if p ~= lp and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
-            local d = (lp.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if d < dist then dist = d; target = p.Character end
+-- 1. Silent Aim 로직 (형이 준 코드 최적화)
+local oldRaycast = Utility.Raycast
+Utility.Raycast = function(...)
+    local args = {...}
+    if _G.SilentAim and #args > 0 and args[4] == 999 then
+        local closest, min = nil, math.huge
+        for _, p in pairs(workspace:GetChildren()) do
+            if p:FindFirstChild("HumanoidRootPart") and p ~= Players.LocalPlayer.Character then
+                local pos, onScreen = Camera:WorldToViewportPoint(p.HumanoidRootPart.Position)
+                if onScreen then
+                    local dist = (Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) - Vector2.new(pos.X, pos.Y)).Magnitude
+                    if dist < min then min = dist; closest = p end
+                end
+            end
+        end
+        if closest and closest:FindFirstChild("Head") then
+            args[3] = closest.Head.Position
         end
     end
+    return oldRaycast(unpack(args))
+end
 
-    -- 2. 기능 실행
-    if target then
-        if _G.Settings.Aimbot then workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, target.Head.Position) end
-        if _G.Settings.AutoShoot then lp.Character:FindFirstChildOfClass("Tool"):Activate() end
-        if _G.Settings.AutoFarm then lp.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0) end
-    end
-end)
-
--- [UI 구성 (대문자 탭 확인 완료)]
+-- 2. UI 마운트 (Tabs["MAIN"]에 버튼 추가)
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["MAIN"] and Tabs["ESP"] and Tabs["MISC"]
+    repeat task.wait(0.5) until Tabs and Tabs["MAIN"]
+    local M = _G.AddSection(Tabs["MAIN"].Left, "Combat")
+    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentAim = s end)
+    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.AutoShoot = s end)
     
-    -- MAIN 탭
-    local M = _G.AddSection(Tabs["MAIN"].Left, "Combat & Farm")
-    _G.AddToggle(M, "Aimbot", false, function(s) _G.Settings.Aimbot = s end)
-    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.Settings.AutoShoot = s end)
-    _G.AddToggle(M, "Auto Farm", false, function(s) _G.Settings.AutoFarm = s end)
-    _G.AddSlider(M, "WalkSpeed", 16, 100, 16, function(v) game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = v end)
-
-    -- ESP 탭
-    local E = _G.AddSection(Tabs["ESP"].Left, "ESP Options")
-    _G.AddToggle(E, "Box ESP", false, function(s) _G.Settings.BoxESP = s end)
-    _G.AddToggle(E, "Name ESP", false, function(s) _G.Settings.NameESP = s end)
-    _G.AddToggle(E, "Health Bar", false, function(s) _G.Settings.HealthBar = s end)
-
-    -- MISC 탭
-    local I = _G.AddSection(Tabs["MISC"].Left, "Misc")
-    _G.AddToggle(I, "Infinite Jump", false, function(s) _G.Settings.InfiniteJump = s end)
-    _G.AddToggle(I, "Skin Changer", false, function(s) if s then loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end end)
-end)
-
--- [잡다한 이벤트]
-game:GetService("UserInputService").JumpRequest:Connect(function() 
-    if _G.Settings.InfiniteJump then game.Players.LocalPlayer.Character.Humanoid:ChangeState("Jumping") end 
+    -- Auto Shoot 기능 (에임봇과는 별개)
+    RunService.RenderStepped:Connect(function()
+        if _G.AutoShoot then
+            local tool = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if tool then tool:Activate() end
+        end
+    end)
 end)
