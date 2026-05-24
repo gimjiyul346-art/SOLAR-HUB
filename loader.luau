@@ -444,52 +444,74 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- [Solar Hub + Silent Aim 통합 엔진]
--- 기존 코드 싹 다 지우고 이것만 넣으세요.
+-- [통합 코드: Silent Aim + UI Control]
 -- ====================================================================
+local replicated_storage = game:GetService("ReplicatedStorage")
+local players = game:GetService("Players")
+local camera = workspace.CurrentCamera
+local utility = require(replicated_storage.Modules.Utility)
 
-local RS = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-local Utility = require(RS.Modules.Utility)
+_G.SilentEnabled = true -- 초기값 ON
 
-_G.SilentAim = false
-
--- 1. Silent Aim 로직 (형이 준 코드 최적화)
-local oldRaycast = Utility.Raycast
-Utility.Raycast = function(...)
-    local args = {...}
-    if _G.SilentAim and #args > 0 and args[4] == 999 then
-        local closest, min = nil, math.huge
-        for _, p in pairs(workspace:GetChildren()) do
-            if p:FindFirstChild("HumanoidRootPart") and p ~= Players.LocalPlayer.Character then
-                local pos, onScreen = Camera:WorldToViewportPoint(p.HumanoidRootPart.Position)
-                if onScreen then
-                    local dist = (Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) - Vector2.new(pos.X, pos.Y)).Magnitude
-                    if dist < min then min = dist; closest = p end
+local get_players = function()
+    local entities = {};
+    for _, child in workspace:GetChildren() do
+        if child:FindFirstChildOfClass("Humanoid") then
+            table.insert(entities, child);
+        elseif child.Name == "HurtEffect" then
+            for _, hurt_player in child:GetChildren() do
+                if (hurt_player.ClassName ~= "Highlight") then
+                    table.insert(entities, hurt_player);
                 end
             end
         end
-        if closest and closest:FindFirstChild("Head") then
-            args[3] = closest.Head.Position
-        end
     end
-    return oldRaycast(unpack(args))
+    return entities
 end
 
--- 2. UI 마운트 (Tabs["MAIN"]에 버튼 추가)
+local get_closest_player = function()
+    local closest, closest_distance = nil, math.huge;
+    local character = players.LocalPlayer.Character;
+    if (character == nil) then return; end
+    for _, player in get_players() do
+        if (player == players.LocalPlayer) then continue; end
+        if (not player:FindFirstChild("HumanoidRootPart")) then continue; end
+        local position, on_screen = camera:WorldToViewportPoint(player.HumanoidRootPart.Position);
+        if (on_screen == false) then continue; end
+        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
+        local distance = (center - Vector2.new(position.X, position.Y)).Magnitude;
+        if (distance > closest_distance) then continue; end
+        closest = player;
+        closest_distance = distance;
+    end
+    return closest;
+end
+
+local old = utility.Raycast; 
+utility.Raycast = function(...)
+    local arguments = {...};
+    -- 스위치가 꺼져있으면 원래 기능을 수행
+    if not _G.SilentEnabled then return old(table.unpack(arguments)) end
+    
+    if (#arguments > 0 and arguments[4] == 999) then
+        local closest = get_closest_player();
+        if (closest) then
+            arguments[3] = closest.Head.Position;
+        end
+    end
+    return old(table.unpack(arguments));
+end
+
+-- [UI 버튼 마운트 전용 코드]
 task.spawn(function()
     repeat task.wait(0.5) until Tabs and Tabs["MAIN"]
     local M = _G.AddSection(Tabs["MAIN"].Left, "Combat")
-    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentAim = s end)
-    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.AutoShoot = s end)
-    
-    -- Auto Shoot 기능 (에임봇과는 별개)
-    RunService.RenderStepped:Connect(function()
-        if _G.AutoShoot then
-            local tool = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if tool then tool:Activate() end
-        end
+    _G.AddToggle(M, "Silent Aim", true, function(s) 
+        _G.SilentEnabled = s 
     end)
+    _G.AddToggle(M, "Infinite Jump", false, function(s) _G.Jump = s end)
+end)
+
+game:GetService("UserInputService").JumpRequest:Connect(function()
+    if _G.Jump then game.Players.LocalPlayer.Character.Humanoid:ChangeState("Jumping") end 
 end)
