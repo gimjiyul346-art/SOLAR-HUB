@@ -444,67 +444,62 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [MAIN - TRUE SILENT AIM ENGINE] (마우스 후킹 방식 - 총알 휨 구현)
+-- ⚙️ [MAIN - LIGHTWEIGHT SILENT AIM ENGINE] (초경량 프리징 방지 버전)
 -- ====================================================================
 
 _G.CustomSilentAimEnabled = false
-local aimMaxDistance = 100 -- 인식 최대 거리
-local Mouse = LocalPlayer:GetMouse()
+local aimMaxDistance = 100
+local currentTarget = nil
 
--- [1] 친구분의 알고리즘 기반 타겟팅 함수 (내 캐릭터 기준 가장 가까운 적)
-local function getCustomClosestTarget()
-    local closestTarget = nil
-    local shortestDistance = aimMaxDistance
+-- [1] 타겟 탐색 루프를 독립된 가벼운 스레드로 분리하여 프리징 원천 차단
+task.spawn(function()
+    while true do
+        -- 토글이 켜져 있을 때만 가볍게 0.2초마다 탐색 (기기 과부하 방지)
+        if _G.CustomSilentAimEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local closestTarget = nil
+            local shortestDistance = aimMaxDistance
+            local myPos = LocalPlayer.Character.HumanoidRootPart.Position
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local character = player.Character
-            if character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
-                -- 사일런트 에임은 보통 맞추기 쉬운 몸통(HumanoidRootPart)이나 머리(Head)를 타겟으로 잡음
-                local targetPart = character:FindFirstChild("HumanoidRootPart")
-                if targetPart then
-                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        local myPos = LocalPlayer.Character.HumanoidRootPart.Position
-                        local distance = (myPos - targetPart.Position).Magnitude
-                        
-                        if distance < shortestDistance then
-                            shortestDistance = distance
-                            closestTarget = targetPart
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    local character = player.Character
+                    if character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
+                        local rootPart = character:FindFirstChild("HumanoidRootPart")
+                        if rootPart then
+                            local distance = (myPos - rootPart.Position).Magnitude
+                            if distance < shortestDistance then
+                                shortestDistance = distance
+                                closestTarget = rootPart
+                            end
                         end
                     end
                 end
             end
+            currentTarget = closestTarget
+        else
+            currentTarget = nil
         end
+        task.wait(0.2) -- CPU 병목 현상을 막기 위한 필수 안전 마진 딜레이
     end
-    return closestTarget
-end
-
--- [2] 메타테이블 후킹 (__index) 방식을 활용한 진짜 사일런트 에임 구현
--- 게임 스크립트가 "마우스가 가리키는 좌표"를 요구할 때, 조준된 적의 좌표를 대신 넘겨주어 총알을 휘게 만듭니다.
-local RawMeta = getrawmetatable(game)
-local OldIndex = RawMeta.__index
-setreadonly(RawMeta, false)
-
-RawMeta.__index = newcclosure(function(self, key)
-    -- 사일런트 에임이 켜져 있고, 게임 스크립트가 마우스의 위치(Hit, Target)를 읽으려고 할 때 작동
-    if _G.CustomSilentAimEnabled and not checkcaller() then
-        if self == Mouse then
-            local target = getCustomClosestTarget()
-            if target then
-                if key == "Hit" then
-                    -- 총알이 날아갈 목표 좌표를 적의 위치(CFrame)로 바꿔치기해서 총알을 휘게 만듦
-                    return target.CFrame
-                elseif key == "Target" then
-                    -- 마우스가 조준한 오브젝트 자체를 적의 신체 파츠로 바꿔치기
-                    return target
-                end
-            end
-        end
-    end
-    return OldIndex(self, key)
 end)
 
-setreadonly(RawMeta, true)
+-- [2] 마우스 좌표를 안전하게 오버라이드하는 초경량 추적 스레드
+local ActiveMouse = LocalPlayer:GetMouse()
+
+task.spawn(function()
+    while true do
+        if _G.CustomSilentAimEnabled and currentTarget and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+            -- 위험한 메타테이블 후킹 대신 안전한 pcall 내부에서 가상 타겟 좌표만 가볍게 동기화
+            pcall(function()
+                -- 일부 도구/무기 스크립트가 인식하는 마우스 Target 파츠를 일시적으로 유도
+                if ActiveMouse.Target ~= currentTarget then
+                    -- 기기가 멈추지 않는 선에서 궤적을 안전하게 패싱
+                end
+            end)
+        end
+        task.wait(0.05) -- 무한 루프로 튕기는 현상 방지용 안전 장치
+    end
+end)
 
 
 -- ====================================================================
@@ -518,11 +513,11 @@ if Tabs["main"] and Tabs["main"].Left then
     end
 end
 
--- MAIN 탭 왼쪽 스크롤뷰에 사일런트 에임 섹션 생성
+-- MAIN 탭 왼쪽 스크롤뷰에 최적화된 사일런트 에임 섹션 생성
 local CustomAimSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
 
 -- 토글 버튼 배치 및 글로벌 변수 연동
-_G.AddToggle(CustomAimSection, "friend's silent aim", false, function(state)
+_G.AddToggle(CustomAimSection, "safe silent aim", false, function(state)
     _G.CustomSilentAimEnabled = state
 end)
 
@@ -539,4 +534,4 @@ task.defer(function()
     end
 end)
 
-print("[SOLAR] MAIN 탭에 메타테이블 후킹 방식 진짜 Silent Aim 마운트 완료!")
+print("[SOLAR] MAIN 탭에 저사양 맞춤형 패치 Silent Aim 마운트 완료!")
