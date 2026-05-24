@@ -444,14 +444,16 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- [통합 코드: Silent Aim + UI Control]
+-- ⚙️ [최종 통합: Silent Aim + UI Control]
 -- ====================================================================
-local replicated_storage = game:GetService("ReplicatedStorage")
-local players = game:GetService("Players")
-local camera = workspace.CurrentCamera
-local utility = require(replicated_storage.Modules.Utility)
 
-_G.SilentEnabled = true -- 초기값 ON
+-- 1. [Silent Aim 핵심 로직]
+local replicated_storage = game:GetService("ReplicatedStorage");
+local players = game:GetService("Players");
+local camera = workspace.CurrentCamera;
+local utility = require(replicated_storage.Modules.Utility);
+
+_G.SilentEnabled = false -- 버튼으로 제어될 스위치
 
 local get_players = function()
     local entities = {};
@@ -490,10 +492,8 @@ end
 local old = utility.Raycast; 
 utility.Raycast = function(...)
     local arguments = {...};
-    -- 스위치가 꺼져있으면 원래 기능을 수행
-    if not _G.SilentEnabled then return old(table.unpack(arguments)) end
-    
-    if (#arguments > 0 and arguments[4] == 999) then
+    -- 버튼이 켜져 있을 때만 작동
+    if _G.SilentEnabled and (#arguments > 0 and arguments[4] == 999) then
         local closest = get_closest_player();
         if (closest) then
             arguments[3] = closest.Head.Position;
@@ -502,16 +502,22 @@ utility.Raycast = function(...)
     return old(table.unpack(arguments));
 end
 
--- [UI 버튼 마운트 전용 코드]
+-- 2. [UI 마운트 - 기존 기능 + Silent Aim]
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["MAIN"]
+    repeat task.wait(0.5) until Tabs and Tabs["MAIN"] and Tabs["ESP"] and Tabs["MISC"]
+    
     local M = _G.AddSection(Tabs["MAIN"].Left, "Combat")
-    _G.AddToggle(M, "Silent Aim", true, function(s) 
-        _G.SilentEnabled = s 
+    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
+    _G.AddToggle(M, "Infinite Jump", false, function(s) _G.InfiniteJump = s end)
+    _G.AddSlider(M, "WalkSpeed", 16, 100, 16, function(v) if game.Players.LocalPlayer.Character then game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = v end end)
+    
+    local I = _G.AddSection(Tabs["MISC"].Left, "Misc")
+    _G.AddToggle(I, "Skin Changer", false, function(s) 
+        if s then loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end 
     end)
-    _G.AddToggle(M, "Infinite Jump", false, function(s) _G.Jump = s end)
 end)
 
+-- 3. [이벤트 핸들러]
 game:GetService("UserInputService").JumpRequest:Connect(function()
-    if _G.Jump then game.Players.LocalPlayer.Character.Humanoid:ChangeState("Jumping") end 
+    if _G.InfiniteJump then game.Players.LocalPlayer.Character.Humanoid:ChangeState("Jumping") end
 end)
