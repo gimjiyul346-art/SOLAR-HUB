@@ -444,34 +444,57 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [충돌 방지: 버튼 추가 마운트 모듈]
+-- ⚙️ [SOLAR HUB - 통합 전투/팜/ESP 시스템]
 -- ====================================================================
 
+-- [기능 상태값]
+_G.Settings = {Aimbot = false, AutoShoot = false, AutoFarm = false, BoxESP = false, NameESP = false, HealthBar = false, InfiniteJump = false}
+
+-- [메인 루프 (최적화 안해도 됨!)]
+game:GetService("RunService").RenderStepped:Connect(function()
+    local lp = game.Players.LocalPlayer
+    local target = nil; local dist = 500
+
+    -- 1. 타겟팅
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= lp and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
+            local d = (lp.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if d < dist then dist = d; target = p.Character end
+        end
+    end
+
+    -- 2. 기능 실행
+    if target then
+        if _G.Settings.Aimbot then workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, target.Head.Position) end
+        if _G.Settings.AutoShoot then lp.Character:FindFirstChildOfClass("Tool"):Activate() end
+        if _G.Settings.AutoFarm then lp.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0) end
+    end
+end)
+
+-- [UI 구성 (대문자 탭 확인 완료)]
 task.spawn(function()
-    -- 1. 탭이 생성될 때까지 대기
-    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"] and Tabs["misc"]
-
-    -- 2. 이미 존재하는 탭에 버튼만 '추가'
-    local M = _G.AddSection(Tabs["main"].Left, "Combat Plus")
+    repeat task.wait(0.5) until Tabs and Tabs["MAIN"] and Tabs["ESP"] and Tabs["MISC"]
     
-    _G.AddToggle(M, "Aimbot", _G.States.Aimbot, function(s) 
-        _G.States.Aimbot = s 
-    end)
-    
-    _G.AddToggle(M, "Auto Shoot", _G.States.AutoShoot, function(s) 
-        _G.States.AutoShoot = s 
-    end)
+    -- MAIN 탭
+    local M = _G.AddSection(Tabs["MAIN"].Left, "Combat & Farm")
+    _G.AddToggle(M, "Aimbot", false, function(s) _G.Settings.Aimbot = s end)
+    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.Settings.AutoShoot = s end)
+    _G.AddToggle(M, "Auto Farm", false, function(s) _G.Settings.AutoFarm = s end)
+    _G.AddSlider(M, "WalkSpeed", 16, 100, 16, function(v) game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = v end)
 
-    local E = _G.AddSection(Tabs["esp"].Left, "ESP Plus")
-    _G.AddToggle(E, "Box ESP", _G.States.BoxESP, function(s) 
-        _G.States.BoxESP = s 
-    end)
+    -- ESP 탭
+    local E = _G.AddSection(Tabs["ESP"].Left, "ESP Options")
+    _G.AddToggle(E, "Box ESP", false, function(s) _G.Settings.BoxESP = s end)
+    _G.AddToggle(E, "Name ESP", false, function(s) _G.Settings.NameESP = s end)
+    _G.AddToggle(E, "Health Bar", false, function(s) _G.Settings.HealthBar = s end)
 
-    local I = _G.AddSection(Tabs["misc"].Left, "Misc Plus")
-    _G.AddToggle(I, "Void Spam", _G.States.VoidSpam, function(s) 
-        _G.States.VoidSpam = s 
-    end)
-    _G.AddToggle(I, "Infinite Jump", _G.States.InfiniteJump, function(s) 
-        _G.States.InfiniteJump = s 
-    end)
+    -- MISC 탭
+    local I = _G.AddSection(Tabs["MISC"].Left, "Misc")
+    _G.AddToggle(I, "Infinite Jump", false, function(s) _G.Settings.InfiniteJump = s end)
+    _G.AddToggle(I, "Skin Changer", false, function(s) if s then loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end end)
+end)
+
+-- [잡다한 이벤트]
+game:GetService("UserInputService").JumpRequest:Connect(function() 
+    if _G.Settings.InfiniteJump then game.Players.LocalPlayer.Character.Humanoid:ChangeState("Jumping") end 
 end)
