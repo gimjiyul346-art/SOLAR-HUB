@@ -444,104 +444,54 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [통합 최적화 엔진: COMBAT / ESP / MISC]
+-- ⚙️ [최종 통합 엔진: 탭별 독립 구성]
 -- ====================================================================
 
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local UserInputService = game:GetService("UserInputService")
+_G.Settings = {SkinChanger = false, Aimbot = false, AutoShoot = false, AutoFarm = false, VoidSpam = false, InfiniteJump = false}
 
-_G.Settings = {Aimbot = false, AutoShoot = false, AutoFarm = false, BoxESP = false, NameESP = false, HealthESP = false, WeaponESP = false, VoidSpam = false, InfiniteJump = false}
-
--- 1. 이동속도 및 점프력 조절
-local function UpdateCharacterStats(prop, val)
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid[prop] = val
+-- 1. 기능 로직
+game:GetService("RunService").RenderStepped:Connect(function()
+    local lp = game.Players.LocalPlayer
+    if _G.Settings.VoidSpam and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+        if lp.Character.HumanoidRootPart.Position.Y < -500 then lp.Character.HumanoidRootPart.CFrame = CFrame.new(0, 50, 0) end
     end
-end
-
--- 2. ESP 박스(테두리 전용) 및 정보 표시
-local EspDrawings = {}
-RunService.RenderStepped:Connect(function()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            if not EspDrawings[p] then
-                local b = Drawing.new("Square"); b.Filled = false; b.Thickness = 2
-                local n = Drawing.new("Text"); n.Size = 15; n.Center = true
-                local h = Drawing.new("Line"); h.Thickness = 3 -- 체력 막대
-                EspDrawings[p] = {Box = b, Name = n, HP = h}
-            end
-            
-            local char = p.Character
-            if char and char:FindFirstChild("HumanoidRootPart") and char.Humanoid.Health > 0 then
-                local pos, vis = Camera:WorldToViewportPoint(char.HumanoidRootPart.Position)
-                local v = EspDrawings[p]
-                if vis then
-                    v.Box.Visible = _G.Settings.BoxESP; v.Box.Position = Vector2.new(pos.X-50, pos.Y-50); v.Box.Size = Vector2.new(100, 100)
-                    v.Name.Visible = _G.Settings.NameESP; v.Name.Text = p.Name; v.Name.Position = Vector2.new(pos.X, pos.Y-70)
-                    -- 체력 막대 (막대기 형태)
-                    local healthPercent = char.Humanoid.Health / char.Humanoid.MaxHealth
-                    v.HP.Visible = _G.Settings.HealthESP; v.HP.From = Vector2.new(pos.X-60, pos.Y+50); v.HP.To = Vector2.new(pos.X-60, pos.Y+50-(healthPercent*100)); v.HP.Color = Color3.new(0,1,0)
-                else
-                    v.Box.Visible = false; v.Name.Visible = false; v.HP.Visible = false
-                end
-            else
-                EspDrawings[p].Box.Visible = false; EspDrawings[p].Name.Visible = false; EspDrawings[p].HP.Visible = false
-            end
-        end
+    
+    if _G.Settings.AutoShoot then
+        local tool = lp.Character and lp.Character:FindFirstChildOfClass("Tool")
+        if tool then tool:Activate() end
     end
 end)
 
--- 3. 메인 전투 로직 (오토슈팅, 에임봇, 텔포)
-RunService.RenderStepped:Connect(function()
-    -- Void Spam (맵 밖 낙하 무시)
-    if _G.Settings.VoidSpam and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        if LocalPlayer.Character.HumanoidRootPart.Position.Y < -500 then LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(0, 100, 0) end
-    end
+-- 점프 및 이동속도/점프력은 UI 슬라이더에서 직접 처리되도록 구성
 
-    -- 타겟팅
-    local target = nil; local min = 500
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
-            local d = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if d < min then min = d; target = p.Character end
-        end
-    end
-
-    if target then
-        if _G.Settings.Aimbot then Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Head.Position) end
-        if _G.Settings.AutoShoot then
-            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if tool then tool:Activate() end
-        end
-        if _G.Settings.AutoFarm then
-            local hrp = LocalPlayer.Character.HumanoidRootPart
-            if (hrp.Position - target.Head.Position).Magnitude > 20 then hrp.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0) end
-        end
-    end
-end)
-
--- 4. 무한 점프
-UserInputService.JumpRequest:Connect(function() if _G.Settings.InfiniteJump then LocalPlayer.Character.Humanoid:ChangeState("Jumping") end end)
-
--- [UI 구성]
+-- 2. UI 마운트 (모든 실행기 호환형)
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs["main"] and Tabs["esp"] and Tabs["misc"]
+    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"] and Tabs["misc"]
+
+    -- [MAIN 탭]
     local M = _G.AddSection(Tabs["main"].Left, "Combat")
     _G.AddToggle(M, "Aimbot", false, function(s) _G.Settings.Aimbot = s end)
     _G.AddToggle(M, "Auto Shoot", false, function(s) _G.Settings.AutoShoot = s end)
-    _G.AddToggle(M, "Auto Farm (Fast TP)", false, function(s) _G.Settings.AutoFarm = s end)
-    _G.AddToggle(M, "Void Spam (No Fall)", false, function(s) _G.Settings.VoidSpam = s end)
-    _G.AddSlider(M, "WalkSpeed", 16, 100, 16, function(v) UpdateCharacterStats("WalkSpeed", v) end)
-    _G.AddSlider(M, "JumpPower", 50, 200, 50, function(v) UpdateCharacterStats("JumpPower", v) end)
+    _G.AddToggle(M, "Auto Farm", false, function(s) _G.Settings.AutoFarm = s end)
+    _G.AddToggle(M, "Void Spam", false, function(s) _G.Settings.VoidSpam = s end)
+    _G.AddSlider(M, "WalkSpeed", 16, 100, 16, function(v) if game.Players.LocalPlayer.Character then game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = v end end)
+    _G.AddSlider(M, "JumpPower", 50, 200, 50, function(v) if game.Players.LocalPlayer.Character then game.Players.LocalPlayer.Character.Humanoid.JumpPower = v end end)
 
+    -- [ESP 탭]
     local E = _G.AddSection(Tabs["esp"].Left, "ESP")
-    _G.AddToggle(E, "Box ESP", false, function(s) _G.Settings.BoxESP = s end)
-    _G.AddToggle(E, "Name ESP", false, function(s) _G.Settings.NameESP = s end)
-    _G.AddToggle(E, "Health Bar ESP", false, function(s) _G.Settings.HealthESP = s end)
+    _G.AddToggle(E, "Box ESP", false, function(s) _G.BoxESP = s end)
+    _G.AddToggle(E, "Name ESP", false, function(s) _G.NameESP = s end)
+    _G.AddToggle(E, "Health Bar", false, function(s) _G.HealthESP = s end)
 
+    -- [MISC 탭]
     local I = _G.AddSection(Tabs["misc"].Left, "Misc")
+    _G.AddToggle(I, "Skin Changer", false, function(s) 
+        if s then loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end 
+    end)
     _G.AddToggle(I, "Infinite Jump", false, function(s) _G.Settings.InfiniteJump = s end)
+end)
+
+-- 3. 무한 점프 이벤트
+game:GetService("UserInputService").JumpRequest:Connect(function()
+    if _G.Settings.InfiniteJump then game.Players.LocalPlayer.Character.Humanoid:ChangeState("Jumping") end
 end)
