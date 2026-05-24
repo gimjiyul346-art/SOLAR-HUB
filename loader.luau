@@ -444,70 +444,68 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [최종 수정 엔진: 멈춤 없음 / 연사 호환]
+-- ⚙️ [통합 마스터 엔진]
 -- ====================================================================
-
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
-_G.Settings = {Aimbot = false, AutoShoot = false, AutoFarm = false, VoidSpam = false, SkinChanger = false}
+_G.States = {Aimbot = false, AutoShoot = false, AutoFarm = false, VoidSpam = false, InfiniteJump = false}
 
--- 1. Void Spam (맵 밖 낙하 무시) - 데미지 무효화 로직
-local function NoFallDamage()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.HealthChanged:Connect(function(health)
-            if _G.Settings.VoidSpam and health < 10 then 
-                LocalPlayer.Character.Humanoid.Health = 100 
-            end
-        end)
-    end
-end
-
--- 2. 핵심 로직
+-- [1] 핵심 기능 통합 (멈춤 방지 루프)
 RunService.RenderStepped:Connect(function()
+    -- 1. Void Spam (맵 밖 안 죽음)
+    if _G.States.VoidSpam and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+    end
+
+    -- 2. 타겟팅 (에임봇 + 오토슈팅 + 오토팜)
     local target = nil; local min = 500
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
-            local d = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if d < min then min = d; target = p.Character end
+            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if dist < min then min = dist; target = p.Character end
         end
     end
 
     if target then
-        -- 에임봇: 부드러운 보정으로 연사 시 에임 유지
-        if _G.Settings.Aimbot then 
-            local lookAt = CFrame.new(Camera.CFrame.Position, target.Head.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(lookAt, 0.2) 
-        end
-        
-        -- 오토슈팅: 연사 시 끊김 방지
-        if _G.Settings.AutoShoot then
-            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if tool then tool:Activate() end
-        end
+        if _G.States.Aimbot then Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Head.Position) end
+        if _G.States.AutoShoot then LocalPlayer.Character:FindFirstChildOfClass("Tool"):Activate() end
+        if _G.States.AutoFarm then LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0) end
+    end
+end)
 
-        -- 오토팜: 머리 위 고정 텔포
-        if _G.Settings.AutoFarm and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0)
+-- [2] ESP (기존 ESP가 사라지지 않게 별도 드로잉)
+local ESP = {Box = {}, Name = {}, Health = {}}
+RunService.RenderStepped:Connect(function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+            -- ESP 기능은 여기에 직접 구현 (메모리 보호)
         end
     end
 end)
 
--- [UI 구성]
+-- [3] UI 구성 (모든 버튼 통합)
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"]
-    local M = _G.AddSection(Tabs["main"].Left, "Combat")
-    _G.AddToggle(M, "Aimbot", false, function(s) _G.Settings.Aimbot = s end)
-    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.Settings.AutoShoot = s end)
-    _G.AddToggle(M, "Auto Farm", false, function(s) _G.Settings.AutoFarm = s end)
-    _G.AddToggle(M, "Void Spam", false, function(s) _G.Settings.VoidSpam = s; if s then NoFallDamage() end end)
+    repeat task.wait(0.5) until Tabs["main"] and Tabs["esp"] and Tabs["misc"]
     
-    local S = _G.AddSection(Tabs["misc"].Left, "Extras")
-    _G.AddToggle(S, "Skin Changer", false, function(s) 
-        _G.Settings.SkinChanger = s 
-        -- 가벼운 방식의 스킨 변경 로직 (멈춤 방지)
-        if s then warn("Skin Changer Enabled") end 
-    end)
+    local M = _G.AddSection(Tabs["main"].Left, "Combat & Farm")
+    _G.AddToggle(M, "Aimbot", false, function(s) _G.States.Aimbot = s end)
+    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.States.AutoShoot = s end)
+    _G.AddToggle(M, "Auto Farm", false, function(s) _G.States.AutoFarm = s end)
+    _G.AddToggle(M, "Void Spam", false, function(s) _G.States.VoidSpam = s end)
+    
+    local E = _G.AddSection(Tabs["esp"].Left, "ESP")
+    _G.AddToggle(E, "Box ESP", false, function(s) end)
+    _G.AddToggle(E, "Name ESP", false, function(s) end)
+    _G.AddToggle(E, "Health Bar", false, function(s) end)
+    
+    local I = _G.AddSection(Tabs["misc"].Left, "Misc")
+    _G.AddToggle(I, "Infinite Jump", false, function(s) _G.States.InfiniteJump = s end)
+end)
+
+-- [4] Misc 점프 로직
+game:GetService("UserInputService").JumpRequest:Connect(function() 
+    if _G.States.InfiniteJump then LocalPlayer.Character.Humanoid:ChangeState("Jumping") end 
 end)
