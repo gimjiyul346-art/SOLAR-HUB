@@ -444,25 +444,22 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- [최종 통합 엔진: Silent Aim / ESP / Farm / Skin]
+-- [최종 통합 엔진: 60줄 원본 로직 + 헤드샷 전용]
 -- ====================================================================
 
--- 1. [Silent Aim: 원본 유지 & 헤드샷 강제 고정]
-local RS = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local Camera = workspace.CurrentCamera
-local Utility = require(RS.Modules.Utility)
+-- 1. [형이 준 원본 60줄 로직]
+local replicated_storage = game:GetService("ReplicatedStorage");
+local players = game:GetService("Players");
+local camera = workspace.CurrentCamera;
+local utility = require(replicated_storage.Modules.Utility);
 
-_G.SilentEnabled = false 
-
--- 형이 준 get_players 함수 (원본 그대로)
 local get_players = function()
     local entities = {};
-    for _, child in pairs(workspace:GetChildren()) do
+    for _, child in workspace:GetChildren() do
         if child:FindFirstChildOfClass("Humanoid") then
             table.insert(entities, child);
         elseif child.Name == "HurtEffect" then
-            for _, hurt_player in pairs(child:GetChildren()) do
+            for _, hurt_player in child:GetChildren() do
                 if (hurt_player.ClassName ~= "Highlight") then
                     table.insert(entities, hurt_player);
                 end
@@ -471,18 +468,16 @@ local get_players = function()
     end
     return entities
 end
-
--- 형이 준 get_closest_player 함수 (원본 그대로)
 local get_closest_player = function()
     local closest, closest_distance = nil, math.huge;
-    local character = Players.LocalPlayer.Character;
-    if (character == nil) then return nil; end
-    for _, player in pairs(get_players()) do
-        if (player == Players.LocalPlayer.Character) then continue; end
+    local character = players.LocalPlayer.Character;
+    if (character == nil) then return; end
+    for _, player in get_players() do
+        if (player == players.LocalPlayer) then continue; end
         if (not player:FindFirstChild("HumanoidRootPart")) then continue; end
-        local position, on_screen = Camera:WorldToViewportPoint(player.HumanoidRootPart.Position);
+        local position, on_screen = camera:WorldToViewportPoint(player.HumanoidRootPart.Position);
         if (on_screen == false) then continue; end
-        local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2);
+        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
         local distance = (center - Vector2.new(position.X, position.Y)).Magnitude;
         if (distance > closest_distance) then continue; end
         closest = player;
@@ -491,46 +486,52 @@ local get_closest_player = function()
     return closest;
 end
 
--- 레이캐스트 후킹
-local old = Utility.Raycast; 
-Utility.Raycast = function(...)
-    local args = {...};
-    if _G.SilentEnabled and (#args > 0 and args[4] == 999) then
+-- 2. [헤드샷 전용으로 수정된 Raycast]
+local old = utility.Raycast; 
+utility.Raycast = function(...)
+    local arguments = {...};
+    -- 헤드 고정 로직: 999번 식별자일 때만 헤드로 좌표 강제 교체
+    if _G.SilentEnabled and (#arguments > 0 and arguments[4] == 999) then
         local closest = get_closest_player();
         if (closest and closest:FindFirstChild("Head")) then
-            args[3] = closest.Head.CFrame.Position; -- 헤드샷 고정
+            -- [수정] 몸통이 아닌 무조건 머리 좌표로 고정
+            arguments[3] = closest.Head.CFrame.Position; 
         end
     end
-    return old(unpack(args));
+    return old(table.unpack(arguments));
 end
 
--- 2. [ESP & Auto Farm 엔진]
-_G.BoxESP = false; _G.AutoFarm = false
+-- 3. [기능 및 UI 통합 (나머지 기능들)]
+_G.SilentEnabled = false; _G.Wallbang = false; _G.AutoShoot = false; _G.AutoFarm = false;
+
+-- Wallbang 로직: 레이캐스트의 4번째 인자(필터)를 없애 벽 통과
+local oldRaycast = utility.Raycast
+utility.Raycast = function(...)
+    local args = {...}
+    if _G.Wallbang and #args > 0 and args[4] == 999 then args[4] = nil end
+    return oldRaycast(unpack(args))
+end
 
 game:GetService("RunService").RenderStepped:Connect(function()
-    -- Auto Farm: 머리 위 3 studs (1.5배 높이)
-    if _G.AutoFarm then
+    if _G.AutoShoot then
         local target = get_closest_player()
-        if target and target:FindFirstChild("Head") and Players.LocalPlayer.Character then
-            Players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 3, 0)
+        if target and players.LocalPlayer.Character and players.LocalPlayer.Character:FindFirstChildOfClass("Tool") then
+            players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):Activate()
+        end
+    end
+    if _G.AutoFarm and players.LocalPlayer.Character then
+        local target = get_closest_player()
+        if target and target:FindFirstChild("Head") then
+            players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 3, 0)
         end
     end
 end)
 
--- 3. [UI 마운트: 탭 감지 방식 (안 뜨는 문제 해결)]
-local function AddButton(tabName, sectionName, text, default, callback)
-    task.spawn(function()
-        repeat task.wait(0.5) until Tabs and Tabs[tabName]
-        local section = _G.AddSection(Tabs[tabName].Left, sectionName)
-        _G.AddToggle(section, text, default, callback)
-    end)
-end
-
-AddButton("main", "Combat", "Silent Aim", false, function(s) _G.SilentEnabled = s end)
-AddButton("main", "Combat", "Auto Farm", false, function(s) _G.AutoFarm = s end)
-AddButton("esp", "Visuals", "Box ESP", false, function(s) _G.BoxESP = s end)
-AddButton("misc", "Utility", "Skin Changer", false, function(s) 
-    if s then task.spawn(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end) end 
+task.spawn(function()
+    repeat task.wait(0.5) until Tabs and Tabs["main"]
+    local M = _G.AddSection(Tabs["main"].Left, "Combat")
+    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
+    _G.AddToggle(M, "Wallbang", false, function(s) _G.Wallbang = s end)
+    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.AutoShoot = s end)
+    _G.AddToggle(M, "Auto Farm", false, function(s) _G.AutoFarm = s end)
 end)
-
-print("[SOLAR] 통합 엔진 로드 완료. 모든 기능 활성화.")
