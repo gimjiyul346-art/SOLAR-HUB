@@ -443,53 +443,11 @@ task.defer(function()
 end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
--- ====================================================================
--- ⚙️ [MAIN - SILENT AIM (ULTRA LIGHT)]
--- ====================================================================
-
+-- [1] 기능 정의 (가장 가벼운 방식)
 _G.SilentAimEnabled = false
 local aimMaxDistance = 100
 
--- 연산 루프를 돌리지 않고, 프레임이 바뀔 때만 아주 짧게 계산하여 프리징 원천 봉쇄
-local function getClosestPlayer()
-    local closest, min = nil, aimMaxDistance
-    local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
-    
-    if not myPos then return nil end
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            local dist = (myPos - p.Character.HumanoidRootPart.Position).Magnitude
-            if dist < min then
-                min = dist
-                closest = p.Character.HumanoidRootPart
-            end
-        end
-    end
-    return closest
-end
-
--- 무거운 후킹 대신 로직만 체크하는 매우 가벼운 리스너
-local RunConn
-RunConn = RunService.Heartbeat:Connect(function()
-    if not _G.SilentAimEnabled then return end
-    
-    -- 마우스 클릭 시에만 아주 짧게 타겟팅 수행
-    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        local target = getClosestPlayer()
-        if target then
-            -- 총알이 휘는 원리는 로컬 무기 스크립트가 마우스 좌표를 읽을 때 
-            -- 우리가 조준한 적의 위치를 강제로 반환하게 함 (가장 가벼운 방식)
-            local Mouse = LocalPlayer:GetMouse()
-            -- 여기에 궤적 보정 로직 삽입
-        end
-    end
-end)
-
--- ====================================================================
--- 📦 [MAIN 탭 마운트]
--- ====================================================================
-
+-- [2] 프리징 방지 UI 섹션 (기존 거 지우고 덮어쓰기)
 if Tabs["main"] and Tabs["main"].Left then
     for _, child in pairs(Tabs["main"].Left:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
@@ -497,13 +455,16 @@ if Tabs["main"] and Tabs["main"].Left then
 end
 
 local CustomAimSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
+_G.AddToggle(CustomAimSection, "Silent Aim", false, function(state) _G.SilentAimEnabled = state end)
+_G.AddSlider(CustomAimSection, "target max distance", 30, 300, 100, function(val) aimMaxDistance = val end)
 
-_G.AddToggle(CustomAimSection, "Silent Aim", false, function(state)
-    _G.SilentAimEnabled = state
+-- [3] 외부 스크립트 실행 (가장 마지막에 배치 - 프리징 예방)
+task.spawn(function()
+    task.wait(2) -- UI가 완전히 로딩될 때까지 기다림 (핵심!)
+    local success, err = pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))()
+    end)
+    if not success then warn("외부 스크립트 로드 대기 중...") end
 end)
 
-_G.AddSlider(CustomAimSection, "target max distance", 30, 300, 100, function(val)
-    aimMaxDistance = val
-end)
-
-print("[SOLAR] Silent Aim 로드 완료 (멈춤 방지 모드)")
+print("[SOLAR] 모든 실행기 최적화 완료!")
