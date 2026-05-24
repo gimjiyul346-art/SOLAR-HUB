@@ -25,7 +25,7 @@ ScreenGui.DisplayOrder = 999
 -- [[ 3. 메인 백그라운드 프레임 ]]
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 550, 0, 440) -- 탭이 많아져서 가로 세로 크기를 살짝 늘림
+MainFrame.Size = UDim2.new(0, 550, 0, 440)
 MainFrame.Position = UDim2.new(0.5, -275, 0.5, -220)
 MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
 MainFrame.BorderSizePixel = 1
@@ -33,12 +33,12 @@ MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
 MainFrame.Active = true
 MainFrame.Draggable = true
 
--- 상단 타이틀 바
+-- 상단 타이틀 바 (요청한 새로운 디스코드 주소로 변경 완료)
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -15, 0, 25)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "SOLAR HUB V1 - MULTI TAB EDITION"
+Title.Text = "SOLAR HUB V1 - discord.gg/VtPuHZQt8y"
 Title.TextColor3 = Color3.fromRGB(255, 0, 50)
 Title.Font = Enum.Font.Code
 Title.TextSize = 11
@@ -63,7 +63,7 @@ ContentFrame.Size = UDim2.new(1, -24, 1, -65)
 ContentFrame.Position = UDim2.new(0, 12, 0, 55)
 ContentFrame.BackgroundTransparency = 1
 
--- [[ 5. 탭 페이지 생성 함수 (좌우 분할 스크롤 레이아웃) ]]
+-- [[ 5. 탭 페이지 생성 함수 ]]
 local Tabs = {}
 local function CreateTabPages(tabName)
     local Page = Instance.new("Frame", ContentFrame)
@@ -98,16 +98,16 @@ local function CreateTabPages(tabName)
     Tabs[tabName] = {Left = LeftScroll, Right = RightScroll, Page = Page}
 end
 
--- 형이 요청한 7가지 필수 탭 등록
+-- 7개 필수 탭 순서대로 생성
 local TabNames = {"main", "world", "esp", "visuals", "character", "misc", "setting"}
 for i, name in ipairs(TabNames) do
     CreateTabPages(name)
 end
 
--- 탭 상단 이동 버튼 디자인 생성 함수
+-- 탭 버튼 디자인 생성 함수
 local function SetupTabButton(name, order)
     local TabBtn = Instance.new("TextButton", TabBar)
-    TabBtn.Size = UDim2.new(0, 72, 1, 0) -- 탭이 많으므로 가로 폭 자동 조절 균등 분할
+    TabBtn.Size = UDim2.new(0, 72, 1, 0)
     TabBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
     TabBtn.BorderSizePixel = 0
     TabBtn.Text = name:upper()
@@ -129,10 +129,10 @@ end
 for i, name in ipairs(TabNames) do
     SetupTabButton(name, i)
 end
-Tabs["main"].Page.Visible = true -- 기본 켜지는 첫 페이지는 main으로 고정
+Tabs["main"].Page.Visible = true
 TabBar:GetChildren()[2].TextColor3 = Color3.fromRGB(255, 0, 50)
 
--- [[ 6. 섹션 및 컴포넌트 추가 빌더 함수 ]]
+-- [[ 6. GUI 컴포넌트 빌더 함수 ]]
 local function AddSection(parent, titleName)
     local SectionFrame = Instance.new("Frame", parent)
     SectionFrame.Size = UDim2.new(1, -5, 0, 180)
@@ -255,7 +255,7 @@ local function AddSlider(section, text, min, max, default, callback)
     end)
 end
 
--- [[ 7. UI On/Off 외부 고정 마스터 스위치 버튼 ]]
+-- [[ 7. UI 마스터 On/Off 고정 스위치 ]]
 local ToggleBtn = Instance.new("TextButton", ScreenGui)
 ToggleBtn.Name = "UIToggleButton"
 ToggleBtn.Size = UDim2.new(0, 45, 0, 30)
@@ -274,7 +274,7 @@ end)
 
 
 -- ====================================================================
--- 🎯 1. MAIN 탭: SILENT AIM 시스템 코어 연산 엔진
+-- 🎯 [MAIN 탭 전용] SILENT AIM 연산 장치
 -- ====================================================================
 
 _G.SilentAimEnabled = false
@@ -316,7 +316,6 @@ local function GetClosestTarget()
     return Closest
 end
 
--- 메타테이블 후킹 조준선 유도 연산식 (총알이 꺾여서 박히게 제어)
 local Meta = getrawmetatable(game)
 local OldIndex = Meta.__index
 setreadonly(Meta, false)
@@ -334,7 +333,7 @@ setreadonly(Meta, true)
 
 
 -- ====================================================================
--- ✈️ 2. CHARACTER 탭: 모바일/PC 하이브리드 FLY 플라이 엔진
+-- ✈️ [MISC 탭 전용] 하이브리드 FLY 플라이 무빙 엔진
 -- ====================================================================
 
 _G.FlyEnabled = false
@@ -346,18 +345,15 @@ table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
         local MoveDirection = Vector3.new(0, 0, 0)
         local Hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         
-        -- [PC 키보드 제어 벡터 연산]
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then MoveDirection = MoveDirection + Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then MoveDirection = MoveDirection - Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then MoveDirection = MoveDirection - Camera.CFrame.RightVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then MoveDirection = MoveDirection + Camera.CFrame.RightVector end
         
-        -- [모바일 전용 화면 가상 조이스틱/터치 무빙 방향 감지 후킹 연산]
         if Hum and Hum.MoveDirection.Magnitude > 0 then
             MoveDirection = MoveDirection + Hum.MoveDirection
         end
         
-        -- 상승/하강 트리거 인터페이스 (PC: 스페이스/쉬프트, 모바일: 점프 상태 감지 연동)
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) or (Hum and Hum.Jump) then 
             MoveDirection = MoveDirection + Vector3.new(0, 1, 0) 
         end
@@ -373,7 +369,6 @@ table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
     end
 end))
 
--- 벽 통과 패시브 연동 (플라이 가동 시 튕김 방지 처리)
 table.insert(_G.SolarConnections, RunService.Stepped:Connect(function()
     if _G.FlyEnabled and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
@@ -387,22 +382,23 @@ end))
 -- 🛠️ 기능 인터페이스 마운트 바인딩 완료
 -- ====================================================================
 
--- 1. MAIN 탭 스위치
-local MainSection = AddSection(Tabs["main"].Left, "silent target options")
+-- 1. MAIN 탭
+local MainSection = AddSection(Tabs["main"].Left, "combat configuration")
 AddToggle(MainSection, "silent aim lock", false, function(state) _G.SilentAimEnabled = state end)
-AddToggle(MainSection, "render fov circle", false, function(state) FOVCircle.Visible = state end)
-AddSlider(MainSection, "fov boundary", 30, 500, 120, function(val) _G.AimbotFOV = val end)
+AddToggle(MainSection, "render fov scope", false, function(state) FOVCircle.Visible = state end)
+AddSlider(MainSection, "fov diameter", 30, 500, 120, function(val) _G.AimbotFOV = val end)
 
--- 2. CHARACTER 탭 스위치
-local CharSection = AddSection(Tabs["character"].Left, "hybrid flight controls")
-AddToggle(CharSection, "cross-platform fly", false, function(state) _G.FlyEnabled = state end)
-AddSlider(CharSection, "flight velocity", 20, 200, 50, function(val) FlySpeed = val end)
+-- 2. MISC 탭
+local MiscSection = AddSection(Tabs["misc"].Left, "utility options")
+AddToggle(MiscSection, "cross-platform fly", false, function(state) _G.FlyEnabled = state end)
+AddSlider(MiscSection, "fly velocity speed", 20, 200, 50, function(val) FlySpeed = val end)
 
--- 3. 나머지 빈 탭들은 뼈대 가이드용 예시 프레임 세팅 생성
+-- 나머지 빈 탭 레이아웃 유지
 AddSection(Tabs["world"].Left, "world empty sector")
 AddSection(Tabs["esp"].Left, "esp empty sector")
 AddSection(Tabs["visuals"].Left, "visuals empty sector")
-AddSection(Tabs["misc"].Left, "misc empty sector")
+AddSection(Tabs["character"].Left, "character empty sector")
 AddSection(Tabs["setting"].Left, "setting empty sector")
 
-print("SOLAR HUB 7-TAB Interface Compiled and Locked!")
+print("[SOLAR HUB] Successfully Compiled and Title Updated!")
+
