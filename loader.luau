@@ -444,72 +444,95 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- [통합 메인 스크립트: AI 자동 조준 + 월뱅 포탑]
 -- ====================================================================
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+-- [최종 통합 엔진: 60줄 원본 로직 + 헤드샷 전용]
+-- ====================================================================
 
-local turret = script.Parent
-local ATTACK_RANGE = 100
-local FIRE_RATE = 0.8
-local lastFireTime = 0
+-- 1. [형이 준 원본 60줄 로직]
+local replicated_storage = game:GetService("ReplicatedStorage");
+local players = game:GetService("Players");
+local camera = workspace.CurrentCamera;
+local utility = require(replicated_storage.Modules.Utility);
 
--- 1. 월뱅 사격 함수 (관통 로직)
-local function shootWallbang(origin, direction, maxDistance, maxPierces, ignoreList)
-	ignoreList = ignoreList or {turret}
-	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-	rayParams.FilterDescendantsInstances = ignoreList
-	
-	local rayResult = workspace:Raycast(origin, direction * maxDistance, rayParams)
-	
-	if rayResult then
-		local hitPart = rayResult.Instance
-		-- 나무 재질이면 뚫고 지나가기
-		if hitPart.Material == Enum.Material.Wood and maxPierces > 0 then
-			table.insert(ignoreList, hitPart)
-			local remainingDist = maxDistance - (rayResult.Position - origin).Magnitude
-			return shootWallbang(rayResult.Position, direction, remainingDist, maxPierces - 1, ignoreList)
-		else
-			return rayResult -- 최종 적중 반환
-		end
-	end
-	return nil
+local get_players = function()
+    local entities = {};
+    for _, child in workspace:GetChildren() do
+        if child:FindFirstChildOfClass("Humanoid") then
+            table.insert(entities, child);
+        elseif child.Name == "HurtEffect" then
+            for _, hurt_player in child:GetChildren() do
+                if (hurt_player.ClassName ~= "Highlight") then
+                    table.insert(entities, hurt_player);
+                end
+            end
+        end
+    end
+    return entities
+end
+local get_closest_player = function()
+    local closest, closest_distance = nil, math.huge;
+    local character = players.LocalPlayer.Character;
+    if (character == nil) then return; end
+    for _, player in get_players() do
+        if (player == players.LocalPlayer) then continue; end
+        if (not player:FindFirstChild("HumanoidRootPart")) then continue; end
+        local position, on_screen = camera:WorldToViewportPoint(player.HumanoidRootPart.Position);
+        if (on_screen == false) then continue; end
+        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
+        local distance = (center - Vector2.new(position.X, position.Y)).Magnitude;
+        if (distance > closest_distance) then continue; end
+        closest = player;
+        closest_distance = distance;
+    end
+    return closest;
 end
 
--- 2. 타겟 스캔 함수
-local function getClosestPlayer()
-	local closestPlayer, closestDist = nil, ATTACK_RANGE
-	for _, player in pairs(Players:GetPlayers()) do
-		local char = player.Character
-		if char and char:FindFirstChild("HumanoidRootPart") and char.Humanoid.Health > 0 then
-			local dist = (turret.Position - char.HumanoidRootPart.Position).Magnitude
-			if dist < closestDist then
-				closestPlayer, closestDist = char, dist
-			end
-		end
-	end
-	return closestPlayer
+-- 2. [헤드샷 전용으로 수정된 Raycast]
+local old = utility.Raycast; 
+utility.Raycast = function(...)
+    local arguments = {...};
+    -- 헤드 고정 로직: 999번 식별자일 때만 헤드로 좌표 강제 교체
+    if _G.SilentEnabled and (#arguments > 0 and arguments[4] == 999) then
+        local closest = get_closest_player();
+        if (closest and closest:FindFirstChild("Head")) then
+            -- [수정] 몸통이 아닌 무조건 머리 좌표로 고정
+            arguments[3] = closest.Head.CFrame.Position; 
+        end
+    end
+    return old(table.unpack(arguments));
 end
 
--- 3. 메인 루프 (Main Loop)
-RunService.Heartbeat:Connect(function()
-	local target = getClosestPlayer()
-	if target then
-		local targetPos = target.HumanoidRootPart.Position
-		turret.CFrame = CFrame.new(turret.Position, targetPos)
-		
-		if tick() - lastFireTime >= FIRE_RATE then
-			lastFireTime = tick()
-			local direction = (targetPos - turret.Position).Unit
-			
-			-- 🎯 이제 월뱅 기능을 탑재한 사격 실행! (사거리 100, 최대 2개 벽 관통)
-			local hitResult = shootWallbang(turret.Position, direction, ATTACK_RANGE, 2)
-			
-			if hitResult and hitResult.Instance:IsDescendantOf(target) then
-				target.Humanoid:TakeDamage(20)
-				print("월뱅 적중! 데미지 적용 완료.")
-			end
-		end
-	end
+-- 3. [기능 및 UI 통합 (나머지 기능들)]
+_G.SilentEnabled = false; _G.Wallbang = false; _G.AutoShoot = false; _G.AutoFarm = false;
+
+-- Wallbang 로직: 레이캐스트의 4번째 인자(필터)를 없애 벽 통과
+local oldRaycast = utility.Raycast
+utility.Raycast = function(...)
+    local args = {...}
+    if _G.Wallbang and #args > 0 and args[4] == 999 then args[4] = nil end
+    return oldRaycast(unpack(args))
+end
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if _G.AutoShoot then
+        local target = get_closest_player()
+        if target and players.LocalPlayer.Character and players.LocalPlayer.Character:FindFirstChildOfClass("Tool") then
+            players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):Activate()
+        end
+    end
+    if _G.AutoFarm and players.LocalPlayer.Character then
+        local target = get_closest_player()
+        if target and target:FindFirstChild("Head") then
+            players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 3, 0)
+        end
+    end
+end)
+
+task.spawn(function()
+    repeat task.wait(0.5) until Tabs and Tabs["main"]
+    local M = _G.AddSection(Tabs["main"].Left, "Combat")
+    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
+    _G.AddToggle(M, "Wallbang", false, function(s) _G.Wallbang = s end)
+    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.AutoShoot = s end)
+    _G.AddToggle(M, "Auto Farm", false, function(s) _G.AutoFarm = s end)
 end)
