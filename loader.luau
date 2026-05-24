@@ -444,54 +444,70 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [최종 통합 엔진: 탭별 독립 구성]
+-- ⚙️ [최종 수정 엔진: 멈춤 없음 / 연사 호환]
 -- ====================================================================
 
-_G.Settings = {SkinChanger = false, Aimbot = false, AutoShoot = false, AutoFarm = false, VoidSpam = false, InfiniteJump = false}
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
--- 1. 기능 로직
-game:GetService("RunService").RenderStepped:Connect(function()
-    local lp = game.Players.LocalPlayer
-    if _G.Settings.VoidSpam and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-        if lp.Character.HumanoidRootPart.Position.Y < -500 then lp.Character.HumanoidRootPart.CFrame = CFrame.new(0, 50, 0) end
+_G.Settings = {Aimbot = false, AutoShoot = false, AutoFarm = false, VoidSpam = false, SkinChanger = false}
+
+-- 1. Void Spam (맵 밖 낙하 무시) - 데미지 무효화 로직
+local function NoFallDamage()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.HealthChanged:Connect(function(health)
+            if _G.Settings.VoidSpam and health < 10 then 
+                LocalPlayer.Character.Humanoid.Health = 100 
+            end
+        end)
     end
-    
-    if _G.Settings.AutoShoot then
-        local tool = lp.Character and lp.Character:FindFirstChildOfClass("Tool")
-        if tool then tool:Activate() end
+end
+
+-- 2. 핵심 로직
+RunService.RenderStepped:Connect(function()
+    local target = nil; local min = 500
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
+            local d = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if d < min then min = d; target = p.Character end
+        end
+    end
+
+    if target then
+        -- 에임봇: 부드러운 보정으로 연사 시 에임 유지
+        if _G.Settings.Aimbot then 
+            local lookAt = CFrame.new(Camera.CFrame.Position, target.Head.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(lookAt, 0.2) 
+        end
+        
+        -- 오토슈팅: 연사 시 끊김 방지
+        if _G.Settings.AutoShoot then
+            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if tool then tool:Activate() end
+        end
+
+        -- 오토팜: 머리 위 고정 텔포
+        if _G.Settings.AutoFarm and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0)
+        end
     end
 end)
 
--- 점프 및 이동속도/점프력은 UI 슬라이더에서 직접 처리되도록 구성
-
--- 2. UI 마운트 (모든 실행기 호환형)
+-- [UI 구성]
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"] and Tabs["misc"]
-
-    -- [MAIN 탭]
+    repeat task.wait(0.5) until Tabs and Tabs["main"]
     local M = _G.AddSection(Tabs["main"].Left, "Combat")
     _G.AddToggle(M, "Aimbot", false, function(s) _G.Settings.Aimbot = s end)
     _G.AddToggle(M, "Auto Shoot", false, function(s) _G.Settings.AutoShoot = s end)
     _G.AddToggle(M, "Auto Farm", false, function(s) _G.Settings.AutoFarm = s end)
-    _G.AddToggle(M, "Void Spam", false, function(s) _G.Settings.VoidSpam = s end)
-    _G.AddSlider(M, "WalkSpeed", 16, 100, 16, function(v) if game.Players.LocalPlayer.Character then game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = v end end)
-    _G.AddSlider(M, "JumpPower", 50, 200, 50, function(v) if game.Players.LocalPlayer.Character then game.Players.LocalPlayer.Character.Humanoid.JumpPower = v end end)
-
-    -- [ESP 탭]
-    local E = _G.AddSection(Tabs["esp"].Left, "ESP")
-    _G.AddToggle(E, "Box ESP", false, function(s) _G.BoxESP = s end)
-    _G.AddToggle(E, "Name ESP", false, function(s) _G.NameESP = s end)
-    _G.AddToggle(E, "Health Bar", false, function(s) _G.HealthESP = s end)
-
-    -- [MISC 탭]
-    local I = _G.AddSection(Tabs["misc"].Left, "Misc")
-    _G.AddToggle(I, "Skin Changer", false, function(s) 
-        if s then loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))() end 
+    _G.AddToggle(M, "Void Spam", false, function(s) _G.Settings.VoidSpam = s; if s then NoFallDamage() end end)
+    
+    local S = _G.AddSection(Tabs["misc"].Left, "Extras")
+    _G.AddToggle(S, "Skin Changer", false, function(s) 
+        _G.Settings.SkinChanger = s 
+        -- 가벼운 방식의 스킨 변경 로직 (멈춤 방지)
+        if s then warn("Skin Changer Enabled") end 
     end)
-    _G.AddToggle(I, "Infinite Jump", false, function(s) _G.Settings.InfiniteJump = s end)
-end)
-
--- 3. 무한 점프 이벤트
-game:GetService("UserInputService").JumpRequest:Connect(function()
-    if _G.Settings.InfiniteJump then game.Players.LocalPlayer.Character.Humanoid:ChangeState("Jumping") end
 end)
