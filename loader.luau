@@ -443,3 +443,100 @@ task.defer(function()
 end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
+-- ====================================================================
+-- ⚙️ [MAIN - TRUE SILENT AIM ENGINE] (마우스 후킹 방식 - 총알 휨 구현)
+-- ====================================================================
+
+_G.CustomSilentAimEnabled = false
+local aimMaxDistance = 100 -- 인식 최대 거리
+local Mouse = LocalPlayer:GetMouse()
+
+-- [1] 친구분의 알고리즘 기반 타겟팅 함수 (내 캐릭터 기준 가장 가까운 적)
+local function getCustomClosestTarget()
+    local closestTarget = nil
+    local shortestDistance = aimMaxDistance
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = player.Character
+            if character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
+                -- 사일런트 에임은 보통 맞추기 쉬운 몸통(HumanoidRootPart)이나 머리(Head)를 타겟으로 잡음
+                local targetPart = character:FindFirstChild("HumanoidRootPart")
+                if targetPart then
+                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+                        local distance = (myPos - targetPart.Position).Magnitude
+                        
+                        if distance < shortestDistance then
+                            shortestDistance = distance
+                            closestTarget = targetPart
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestTarget
+end
+
+-- [2] 메타테이블 후킹 (__index) 방식을 활용한 진짜 사일런트 에임 구현
+-- 게임 스크립트가 "마우스가 가리키는 좌표"를 요구할 때, 조준된 적의 좌표를 대신 넘겨주어 총알을 휘게 만듭니다.
+local RawMeta = getrawmetatable(game)
+local OldIndex = RawMeta.__index
+setreadonly(RawMeta, false)
+
+RawMeta.__index = newcclosure(function(self, key)
+    -- 사일런트 에임이 켜져 있고, 게임 스크립트가 마우스의 위치(Hit, Target)를 읽으려고 할 때 작동
+    if _G.CustomSilentAimEnabled and not checkcaller() then
+        if self == Mouse then
+            local target = getCustomClosestTarget()
+            if target then
+                if key == "Hit" then
+                    -- 총알이 날아갈 목표 좌표를 적의 위치(CFrame)로 바꿔치기해서 총알을 휘게 만듦
+                    return target.CFrame
+                elseif key == "Target" then
+                    -- 마우스가 조준한 오브젝트 자체를 적의 신체 파츠로 바꿔치기
+                    return target
+                end
+            end
+        end
+    end
+    return OldIndex(self, key)
+end)
+
+setreadonly(RawMeta, true)
+
+
+-- ====================================================================
+-- 📦 [MAIN 탭 마운트 구역]
+-- ====================================================================
+
+-- 기존 베이스 반복문이 미리 만들어둔 빈 main options 상자를 깨끗하게 청소
+if Tabs["main"] and Tabs["main"].Left then
+    for _, child in pairs(Tabs["main"].Left:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+end
+
+-- MAIN 탭 왼쪽 스크롤뷰에 사일런트 에임 섹션 생성
+local CustomAimSection = _G.AddSection(Tabs["main"].Left, "combat configuration")
+
+-- 토글 버튼 배치 및 글로벌 변수 연동
+_G.AddToggle(CustomAimSection, "friend's silent aim", false, function(state)
+    _G.CustomSilentAimEnabled = state
+end)
+
+-- 슬라이더로 인식 거리를 실시간 조절 가능하게 변경
+_G.AddSlider(CustomAimSection, "target max distance", 30, 300, 100, function(val)
+    aimMaxDistance = val
+end)
+
+-- 레이아웃 스크롤 리사이징 자동 갱신
+task.defer(function()
+    local scroll = Tabs["main"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
+    end
+end)
+
+print("[SOLAR] MAIN 탭에 메타테이블 후킹 방식 진짜 Silent Aim 마운트 완료!")
