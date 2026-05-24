@@ -281,46 +281,68 @@ end
 
 print("[SOLAR BASE] UI Base Loaded! Ready for Functions.")
 -- ====================================================================
--- ⚙️ [CHARACTER - FLY 기능 구동 엔진]
+-- ⚙️ [CHARACTER - CAMERA-ORIENTED FLY ENGINE]
 -- ====================================================================
 
 _G.FlyEnabled = false
 local FlySpeed = 50
 
--- CFrame 좌표 연산 방식 Fly 로직 (물리 튕김 레그 없고 모바일 조이스틱 1:1 연동)
+-- 비행 중 위치 유지를 위한 바디 포지션 오브젝트 세팅
+local FlyGyro, FlyPosition
+
 table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
-    if _G.FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local HRP = LocalPlayer.Character.HumanoidRootPart
         local Hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        local MoveDirection = Vector3.new(0, 0, 0)
         
-        -- PC 키보드 입력 감지
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then MoveDirection = MoveDirection + Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then MoveDirection = MoveDirection - Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then MoveDirection = MoveDirection - Camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then MoveDirection = MoveDirection + Camera.CFrame.RightVector end
-        
-        -- 모바일 가상 조이스틱 무빙값 실시간 패싱
-        if Hum and Hum.MoveDirection.Magnitude > 0 then
-            MoveDirection = MoveDirection + Hum.MoveDirection
-        end
-        
-        -- 수직 고도 제어 (PC: 스페이스바 / 모바일: 점프 버튼 감지)
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) or (Hum and Hum.Jump) then 
-            MoveDirection = MoveDirection + Vector3.new(0, 1, 0) 
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then 
-            MoveDirection = MoveDirection - Vector3.new(0, 1, 0) 
-        end
-        
-        HRP.Velocity = Vector3.new(0, 0, 0) -- 물리 엔진 충돌 물리값 초기화
-        if MoveDirection.Magnitude > 0 then
-            HRP.CFrame = HRP.CFrame + (MoveDirection.Unit * (FlySpeed / 60))
+        if _G.FlyEnabled and Hum and Hum.Health > 0 then
+            local MoveDirection = Vector3.new(0, 0, 0)
+            
+            -- [1] PC 키보드 입력 방향 연산 (카메라 LookVector 완벽 동기화)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then MoveDirection = MoveDirection + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then MoveDirection = MoveDirection - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then MoveDirection = MoveDirection - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then MoveDirection = MoveDirection + Camera.CFrame.RightVector end
+            
+            -- [2] 모바일 조이스틱 입력 방향 연산
+            -- 모바일 조이스틱을 움직였을 때, 캐릭터 평면 무빙을 카메라가 바라보는 입체 방향(3D Vector)으로 변환합니다.
+            if Hum.MoveDirection.Magnitude > 0 then
+                local CameraLook = Camera.CFrame.LookVector
+                local CameraRight = Camera.CFrame.RightVector
+                
+                -- 조이스틱의 앞/뒤, 좌/우 입력을 카메라 시선 기준으로 재조합
+                local ForwardMove = CameraLook * (Hum.MoveDirection:Dot(Camera.CFrame.LookVector) / CameraLook.Magnitude)
+                local SideMove = CameraRight * (Hum.MoveDirection:Dot(Camera.CFrame.RightVector) / CameraRight.Magnitude)
+                
+                -- 이동 벡터가 비정상적으로 튀는 현상 방지 보정
+                if (ForwardMove + SideMove).Magnitude > 0 then
+                    MoveDirection = MoveDirection + (ForwardMove + SideMove).Unit
+                end
+            end
+            
+            -- [3] 수직 수동 제어 (PC: 스페이스바 / 모바일: 점프 버튼)
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) or Hum.Jump then 
+                MoveDirection = MoveDirection + Vector3.new(0, 1, 0) 
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then 
+                MoveDirection = MoveDirection - Vector3.new(0, 1, 0) 
+            end
+            
+            -- [4] 실제 좌표 이동 및 물리 제어
+            HRP.Velocity = Vector3.new(0, 0, 0) -- 중력 및 관성 제로화
+            
+            if MoveDirection.Magnitude > 0 then
+                -- 이동 중일 때: 시선 방향 벡터로 정밀 이동
+                HRP.CFrame = HRP.CFrame + (MoveDirection.Unit * (FlySpeed / 60))
+            else
+                -- 정지 중일 때 (호버링): 떨어지지 않고 공중에 고정되도록 강제 좌표 록온
+                HRP.CFrame = CFrame.new(HRP.Position, HRP.Position + Camera.CFrame.LookVector * Vector3.new(1, 0, 1))
+            end
         end
     end
 end))
 
--- 비행 중 벽 끼임으로 인한 튕김 방지 패시브 (Noclip)
+-- 비행 중 벽 통과 및 낙하 대미지 유발 렉 차단 (Noclip 셋업)
 table.insert(_G.SolarConnections, RunService.Stepped:Connect(function()
     if _G.FlyEnabled and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
@@ -334,14 +356,14 @@ end))
 -- 📦 [CHARACTER 탭 마운트 구역]
 -- ====================================================================
 
--- 기존 베이스 반복문이 미리 만들어둔 빈 character options 상자를 완벽히 청소
+-- 기존 베이스 반복문이 미리 만들어둔 빈 character options 상자를 깔끔하게 제거
 if Tabs["character"] and Tabs["character"].Left then
     for _, child in pairs(Tabs["character"].Left:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
 end
 
--- CHARACTER 탭 왼쪽 스크롤뷰에 진짜 FLY 기능 섹션 생성 및 버튼 배치
+-- CHARACTER 탭 왼쪽 스크롤뷰에 개선된 방향성 FLY 기능 배치
 local CharacterSection = _G.AddSection(Tabs["character"].Left, "character configuration")
 _G.AddToggle(CharacterSection, "cross-platform fly", false, function(state) 
     _G.FlyEnabled = state 
@@ -350,7 +372,7 @@ _G.AddSlider(CharacterSection, "fly velocity speed", 20, 200, 50, function(val)
     FlySpeed = val 
 end)
 
--- 스크롤바 영역 크기 실시간 재정렬
+-- 레이아웃 스크롤 리사이징 갱신
 task.defer(function()
     local scroll = Tabs["character"].Left
     if scroll and scroll:FindFirstChild("UIListLayout") then
@@ -358,4 +380,4 @@ task.defer(function()
     end
 end)
 
-print("[SOLAR] CHARACTER 탭에 FLY 기능 단독 마운트 완료!")
+print("[SOLAR] 시선 방향 인지형 3D Fly 엔진 패치 완료!")
