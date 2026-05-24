@@ -444,7 +444,7 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- [최종 통합 엔진: RAGE BOT + SILENT AIM + ESP + AUTO FARM]
+-- [최종 통합 엔진: Rage & Clean ESP]
 -- ====================================================================
 
 local RS = game:GetService("ReplicatedStorage")
@@ -453,85 +453,62 @@ local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local Utility = require(RS.Modules.Utility)
 
--- 1. [형이 준 원본 60줄 로직]
-local get_players = function()
-    local entities = {};
-    for _, child in workspace:GetChildren() do
-        if child:FindFirstChildOfClass("Humanoid") then table.insert(entities, child);
-        elseif child.Name == "HurtEffect" then
-            for _, h in child:GetChildren() do if h.ClassName ~= "Highlight" then table.insert(entities, h) end end
-        end
-    end
-    return entities
-end
+_G.SilentEnabled = false; _G.RageEnabled = false; _G.Wallbang = false; _G.BoxESP = false
 
-local get_closest_player = function()
-    local closest, closest_distance = nil, math.huge;
-    local char = Players.LocalPlayer.Character;
-    if not char then return nil; end
-    for _, player in get_players() do
-        if player == char then continue; end
-        if not player:FindFirstChild("HumanoidRootPart") then continue; end
-        local pos, onScreen = Camera:WorldToViewportPoint(player.HumanoidRootPart.Position);
-        if not onScreen then continue; end
-        local dist = (Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) - Vector2.new(pos.X, pos.Y)).Magnitude;
-        if dist < closest_distance then closest = player; closest_distance = dist; end
-    end
-    return closest;
-end
-
--- 2. [Silent Aim & Wallbang 엔진]
-_G.SilentEnabled = false; _G.Wallbang = false; _G.RageEnabled = false; _G.AutoFarm = false; _G.BoxESP = false
-
+-- 1. [Raycast: 월뱅 & 헤드 고정 통합 (식별자 검사 무시)]
 local old = Utility.Raycast
 Utility.Raycast = function(...)
     local args = {...}
-    if _G.Wallbang and #args > 0 and args[4] == 999 then args[4] = nil end
-    if _G.SilentEnabled and #args > 0 and args[4] == 999 then
+    -- Wallbang: 필터 무효화
+    if _G.Wallbang and #args > 0 then args[4] = nil end
+    -- Silent Aim: 무조건 헤드 좌표 주입
+    if _G.SilentEnabled and #args > 0 then
         local target = get_closest_player()
         if target and target:FindFirstChild("Head") then args[3] = target.Head.CFrame.Position end
     end
     return old(unpack(args))
 end
 
--- 3. [Rage Bot: 자동 사격 + 무빙 와리가리]
+-- 2. [Rage Bot: 자동 타겟팅 & 자동 사격 & 와리가리]
 RunService.RenderStepped:Connect(function()
-    local lp = Players.LocalPlayer
-    local target = get_closest_player()
-    
-    if _G.RageEnabled and target and lp.Character then
-        -- 자동 사격 및 타겟팅
-        local tool = lp.Character:FindFirstChildOfClass("Tool")
-        if tool then tool:Activate() end
-        -- Anti-Aim 와리가리
-        lp.Character.HumanoidRootPart.CFrame = lp.Character.HumanoidRootPart.CFrame + Vector3.new(math.random(-0.5, 0.5), 0, math.random(-0.5, 0.5))
-    end
-    
-    if _G.AutoFarm and target and target:FindFirstChild("Head") and lp.Character then
-        lp.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 3, 0)
+    if _G.RageEnabled then
+        local target = get_closest_player()
+        local lp = Players.LocalPlayer
+        if target and lp.Character then
+            -- 자동 사격
+            local tool = lp.Character:FindFirstChildOfClass("Tool")
+            if tool then tool:Activate() end
+            -- Anti-Aim (와리가리)
+            lp.Character.HumanoidRootPart.CFrame = lp.Character.HumanoidRootPart.CFrame + Vector3.new(math.random(-0.5, 0.5), 0, math.random(-0.5, 0.5))
+        end
     end
 end)
 
--- 4. [ESP 엔진]
-local box = Drawing.new("Square"); box.Visible = false; box.Thickness = 1
+-- 3. [ESP: 테두리만 있는 깔끔한 박스]
+local box = Drawing.new("Square")
+box.Visible = false
+box.Thickness = 1
+box.Filled = false -- [중요: 안 채움]
+box.Color = Color3.fromRGB(255, 255, 255)
+
 RunService.RenderStepped:Connect(function()
     local target = get_closest_player()
     if _G.BoxESP and target and target:FindFirstChild("HumanoidRootPart") then
         local pos, onScreen = Camera:WorldToViewportPoint(target.HumanoidRootPart.Position)
-        if onScreen then box.Visible = true; box.Position = Vector2.new(pos.X-30, pos.Y-50); box.Size = Vector2.new(60, 100)
+        if onScreen then
+            box.Visible = true
+            box.Position = Vector2.new(pos.X - 30, pos.Y - 50)
+            box.Size = Vector2.new(60, 100)
         else box.Visible = false end
     else box.Visible = false end
 end)
 
--- 5. [UI 통합]
+-- 4. [UI 통합]
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"]
+    repeat task.wait(0.5) until Tabs and Tabs["main"]
     local M = _G.AddSection(Tabs["main"].Left, "Rage Control")
     _G.AddToggle(M, "Silent Aim (Head)", false, function(s) _G.SilentEnabled = s end)
     _G.AddToggle(M, "Wallbang", false, function(s) _G.Wallbang = s end)
-    _G.AddToggle(M, "Rage Bot (Auto Shoot/AA)", false, function(s) _G.RageEnabled = s end)
-    _G.AddToggle(M, "Auto Farm", false, function(s) _G.AutoFarm = s end)
-    
-    local E = _G.AddSection(Tabs["esp"].Left, "Visuals")
-    _G.AddToggle(E, "Box ESP", false, function(s) _G.BoxESP = s end)
+    _G.AddToggle(M, "Rage Bot (Auto Kill)", false, function(s) _G.RageEnabled = s end)
+    _G.AddToggle(M, "Box ESP", false, function(s) _G.BoxESP = s end)
 end)
