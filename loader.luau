@@ -444,61 +444,34 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [최종 락온/연사 최적화 엔진]
+-- ⚙️ [충돌 방지: 버튼 추가 마운트 모듈]
 -- ====================================================================
-local Players = game:GetService("Players")
-local RunService = game:GetService("RenderStepped")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local Mouse = LocalPlayer:GetMouse()
 
-_G.States = {Aimbot = false, AutoShoot = false, Target = nil}
-
--- [1] 타겟 락온 시스템 (연사 유지 핵심)
-RunService:Connect(function()
-    -- 1. 타겟이 없으면 가장 가까운 적을 찾아서 '고정'함
-    if not _G.States.Target or _G.States.Target.Humanoid.Health <= 0 then
-        local closest, min = nil, 500
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                if dist < min then min = dist; closest = p.Character end
-            end
-        end
-        _G.States.Target = closest
-    end
-
-    -- 2. 락온 에임봇 (고개를 미친듯이 돌리지 않고 고정)
-    if _G.States.Aimbot and _G.States.Target then
-        local targetPos = _G.States.Target.Head.Position
-        -- 고개를 강제로 홱 돌리는 대신 부드럽게 고정
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPos)
-    end
-end)
-
--- [2] ESP (작동 안 하던 문제 해결: Drawing API 직접 호출)
-local ESP_Boxes = {}
-game:GetService("RunService").RenderStepped:Connect(function()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-            if not ESP_Boxes[p] then ESP_Boxes[p] = Drawing.new("Square"); ESP_Boxes[p].Filled = false end
-            local pos, vis = Camera:WorldToViewportPoint(p.Character.Head.Position)
-            if vis then
-                ESP_Boxes[p].Visible = _G.States.BoxESP
-                ESP_Boxes[p].Position = Vector2.new(pos.X - 30, pos.Y - 30)
-                ESP_Boxes[p].Size = Vector2.new(60, 80)
-            else ESP_Boxes[p].Visible = false end
-        end
-    end
-end)
-
--- [3] UI (버튼 생성)
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs["main"]
-    local M = _G.AddSection(Tabs["main"].Left, "Combat")
-    _G.AddToggle(M, "Aimbot", false, function(s) _G.States.Aimbot = s end)
-    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.States.AutoShoot = s end)
+    -- 1. 탭이 생성될 때까지 대기
+    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"] and Tabs["misc"]
+
+    -- 2. 이미 존재하는 탭에 버튼만 '추가'
+    local M = _G.AddSection(Tabs["main"].Left, "Combat Plus")
     
-    local E = _G.AddSection(Tabs["esp"].Left, "ESP")
-    _G.AddToggle(E, "Box ESP", false, function(s) _G.States.BoxESP = s end)
+    _G.AddToggle(M, "Aimbot", _G.States.Aimbot, function(s) 
+        _G.States.Aimbot = s 
+    end)
+    
+    _G.AddToggle(M, "Auto Shoot", _G.States.AutoShoot, function(s) 
+        _G.States.AutoShoot = s 
+    end)
+
+    local E = _G.AddSection(Tabs["esp"].Left, "ESP Plus")
+    _G.AddToggle(E, "Box ESP", _G.States.BoxESP, function(s) 
+        _G.States.BoxESP = s 
+    end)
+
+    local I = _G.AddSection(Tabs["misc"].Left, "Misc Plus")
+    _G.AddToggle(I, "Void Spam", _G.States.VoidSpam, function(s) 
+        _G.States.VoidSpam = s 
+    end)
+    _G.AddToggle(I, "Infinite Jump", _G.States.InfiniteJump, function(s) 
+        _G.States.InfiniteJump = s 
+    end)
 end)
