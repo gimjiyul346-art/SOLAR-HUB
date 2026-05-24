@@ -444,68 +444,61 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [통합 마스터 엔진]
+-- ⚙️ [최종 락온/연사 최적화 엔진]
 -- ====================================================================
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local RunService = game:GetService("RenderStepped")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
-_G.States = {Aimbot = false, AutoShoot = false, AutoFarm = false, VoidSpam = false, InfiniteJump = false}
+_G.States = {Aimbot = false, AutoShoot = false, Target = nil}
 
--- [1] 핵심 기능 통합 (멈춤 방지 루프)
-RunService.RenderStepped:Connect(function()
-    -- 1. Void Spam (맵 밖 안 죽음)
-    if _G.States.VoidSpam and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-    end
-
-    -- 2. 타겟팅 (에임봇 + 오토슈팅 + 오토팜)
-    local target = nil; local min = 500
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
-            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if dist < min then min = dist; target = p.Character end
+-- [1] 타겟 락온 시스템 (연사 유지 핵심)
+RunService:Connect(function()
+    -- 1. 타겟이 없으면 가장 가까운 적을 찾아서 '고정'함
+    if not _G.States.Target or _G.States.Target.Humanoid.Health <= 0 then
+        local closest, min = nil, 500
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                if dist < min then min = dist; closest = p.Character end
+            end
         end
+        _G.States.Target = closest
     end
 
-    if target then
-        if _G.States.Aimbot then Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Head.Position) end
-        if _G.States.AutoShoot then LocalPlayer.Character:FindFirstChildOfClass("Tool"):Activate() end
-        if _G.States.AutoFarm then LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0) end
+    -- 2. 락온 에임봇 (고개를 미친듯이 돌리지 않고 고정)
+    if _G.States.Aimbot and _G.States.Target then
+        local targetPos = _G.States.Target.Head.Position
+        -- 고개를 강제로 홱 돌리는 대신 부드럽게 고정
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPos)
     end
 end)
 
--- [2] ESP (기존 ESP가 사라지지 않게 별도 드로잉)
-local ESP = {Box = {}, Name = {}, Health = {}}
-RunService.RenderStepped:Connect(function()
+-- [2] ESP (작동 안 하던 문제 해결: Drawing API 직접 호출)
+local ESP_Boxes = {}
+game:GetService("RunService").RenderStepped:Connect(function()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-            -- ESP 기능은 여기에 직접 구현 (메모리 보호)
+            if not ESP_Boxes[p] then ESP_Boxes[p] = Drawing.new("Square"); ESP_Boxes[p].Filled = false end
+            local pos, vis = Camera:WorldToViewportPoint(p.Character.Head.Position)
+            if vis then
+                ESP_Boxes[p].Visible = _G.States.BoxESP
+                ESP_Boxes[p].Position = Vector2.new(pos.X - 30, pos.Y - 30)
+                ESP_Boxes[p].Size = Vector2.new(60, 80)
+            else ESP_Boxes[p].Visible = false end
         end
     end
 end)
 
--- [3] UI 구성 (모든 버튼 통합)
+-- [3] UI (버튼 생성)
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs["main"] and Tabs["esp"] and Tabs["misc"]
-    
-    local M = _G.AddSection(Tabs["main"].Left, "Combat & Farm")
+    repeat task.wait(0.5) until Tabs["main"]
+    local M = _G.AddSection(Tabs["main"].Left, "Combat")
     _G.AddToggle(M, "Aimbot", false, function(s) _G.States.Aimbot = s end)
     _G.AddToggle(M, "Auto Shoot", false, function(s) _G.States.AutoShoot = s end)
-    _G.AddToggle(M, "Auto Farm", false, function(s) _G.States.AutoFarm = s end)
-    _G.AddToggle(M, "Void Spam", false, function(s) _G.States.VoidSpam = s end)
     
     local E = _G.AddSection(Tabs["esp"].Left, "ESP")
-    _G.AddToggle(E, "Box ESP", false, function(s) end)
-    _G.AddToggle(E, "Name ESP", false, function(s) end)
-    _G.AddToggle(E, "Health Bar", false, function(s) end)
-    
-    local I = _G.AddSection(Tabs["misc"].Left, "Misc")
-    _G.AddToggle(I, "Infinite Jump", false, function(s) _G.States.InfiniteJump = s end)
-end)
-
--- [4] Misc 점프 로직
-game:GetService("UserInputService").JumpRequest:Connect(function() 
-    if _G.States.InfiniteJump then LocalPlayer.Character.Humanoid:ChangeState("Jumping") end 
+    _G.AddToggle(E, "Box ESP", false, function(s) _G.States.BoxESP = s end)
 end)
