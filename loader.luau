@@ -444,63 +444,89 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- ⚙️ [MAIN - COMBAT & FARM (SAFE VERSION)]
+-- ⚙️ [COMBAT & FARM & ESP 통합 엔진]
 -- ====================================================================
 
-_G.CombatEnabled = false
-_G.AutoFarmEnabled = false
+-- [설정값]
+_G.Aimbot = false
+_G.AutoShoot = false
+_G.AutoFarm = false
+_G.BoxESP = false
+_G.NameESP = false
+_G.HealthESP = false
+_G.WeaponESP = false
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
 
--- 타겟팅 함수 (가장 가까운 사람)
-local function GetClosestTarget()
-    local closest, min = nil, 200
+-- 1. 타겟팅 및 오토팜 로직
+RunService.RenderStepped:Connect(function()
     local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
+    if not myHRP then return end
 
+    local closest, min = nil, 200
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
             local dist = (myHRP.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if dist < min then
-                min = dist
-                closest = p.Character
-            end
+            if dist < min then min = dist; closest = p.Character end
         end
     end
-    return closest
-end
 
--- [메인 루프: 에임봇 + 오토슈팅 + 텔레포트]
-RunService.RenderStepped:Connect(function()
-    local target = GetClosestTarget()
-    if target and target:FindFirstChild("Head") then
-        -- 1. 에임봇 (조준선이 적에 닿으면 락온)
-        if _G.CombatEnabled then
-            local camera = workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Head.Position)
-            
-            -- 2. 오토 슈팅
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                Tool:Activate()
-            end
+    if closest then
+        -- 에임봇
+        if _G.Aimbot then Camera.CFrame = CFrame.new(Camera.CFrame.Position, closest.Head.Position) end
+        
+        -- 오토슈팅 (연사 끊기 판정)
+        if _G.AutoShoot and (tick() % 0.2 < 0.1) then 
+            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if tool then tool:Activate() end
         end
 
-        -- 3. 오토 팜 (머리 위 텔레포트)
-        if _G.AutoFarmEnabled and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 5, 0)
+        -- 지능형 오토팜 (상대가 쏘면 회피, 아니면 머리 위 TP)
+        if _G.AutoFarm then
+            local isFiring = closest:FindFirstChild("Humanoid") and closest.Humanoid:GetState() == Enum.HumanoidStateType.Running -- 간단 사격 판정
+            if isFiring then -- 상대가 쏘는 것 같으면 멀리 이동
+                myHRP.CFrame = CFrame.new(myHRP.Position + Vector3.new(50, 0, 50))
+            else -- 평소엔 머리 위
+                myHRP.CFrame = closest.Head.CFrame + Vector3.new(0, 5, 0)
+            end
         end
     end
 end)
 
--- [버튼 생성: 탭 생성 보장]
+-- 2. ESP 로직 (Drawing 사용)
+local EspObjects = {}
+for _, p in pairs(Players:GetPlayers()) do EspObjects[p] = {Box = Drawing.new("Square"), Name = Drawing.new("Text"), HP = Drawing.new("Text"), Wep = Drawing.new("Text")} end
+
+RunService.RenderStepped:Connect(function()
+    for p, v in pairs(EspObjects) do
+        if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.Humanoid.Health > 0 then
+            local pos, vis = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+            if vis then
+                v.Box.Visible = _G.BoxESP; v.Box.Position = Vector2.new(pos.X - 50, pos.Y - 50); v.Box.Size = Vector2.new(100, 100); v.Box.Color = Color3.new(1,0,0)
+                v.Name.Visible = _G.NameESP; v.Name.Text = p.Name; v.Name.Position = Vector2.new(pos.X, pos.Y - 60)
+                v.HP.Visible = _G.HealthESP; v.HP.Text = "HP: " .. math.floor(p.Character.Humanoid.Health); v.HP.Position = Vector2.new(pos.X, pos.Y + 60)
+                v.Wep.Visible = _G.WeaponESP; v.Wep.Text = "Wep: " .. (p.Character:FindFirstChildOfClass("Tool") and p.Character:FindFirstChildOfClass("Tool").Name or "None"); v.Wep.Position = Vector2.new(pos.X, pos.Y + 80)
+            else
+                v.Box.Visible = false; v.Name.Visible = false; v.HP.Visible = false; v.Wep.Visible = false
+            end
+        else v.Box.Visible = false; v.Name.Visible = false; v.HP.Visible = false; v.Wep.Visible = false end
+    end
+end)
+
+-- 3. UI 버튼 마운트
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"]
+    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["esp"]
+    local M = _G.AddSection(Tabs["main"].Left, "Combat")
+    _G.AddToggle(M, "Aimbot", false, function(s) _G.Aimbot = s end)
+    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.AutoShoot = s end)
+    _G.AddToggle(M, "Auto Farm (Avoid & TP)", false, function(s) _G.AutoFarm = s end)
     
-    local Section = _G.AddSection(Tabs["main"].Left, "combat & farm")
-    _G.AddToggle(Section, "Aimbot + Auto Shoot", false, function(state) _G.CombatEnabled = state end)
-    _G.AddToggle(Section, "Auto Farm (Head TP)", false, function(state) _G.AutoFarmEnabled = state end)
+    local E = _G.AddSection(Tabs["esp"].Left, "ESP Info")
+    _G.AddToggle(E, "Box ESP", false, function(s) _G.BoxESP = s end)
+    _G.AddToggle(E, "Name ESP", false, function(s) _G.NameESP = s end)
+    _G.AddToggle(E, "Health ESP", false, function(s) _G.HealthESP = s end)
+    _G.AddToggle(E, "Weapon ESP", false, function(s) _G.WeaponESP = s end)
 end)
