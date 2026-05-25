@@ -17,7 +17,7 @@ for _, v in pairs(CoreGui:GetChildren()) do
     if v.Name == "SOLAR_PREMIUM_UE" then v:Destroy() end
 end
 
--- [[ 2. 글로벌 치트 상태 변수 (진짜 본체 기능 제어용) ]]
+-- [[ 2. 글로벌 치트 상태 변수 (UI 세팅값 저장소) ]]
 local CheatSettings = {
     SilentAim = false,
     HitChance = 100,
@@ -39,7 +39,7 @@ ScreenGui.Name = "SOLAR_PREMIUM_UE"
 ScreenGui.DisplayOrder = 999
 ScreenGui.ResetOnSpawn = false
 
--- [[ 4. 메인 백그라운드 프레임 (Linoria 스타일의 깔끔한 테마) ]]
+-- [[ 4. 메인 백그라운드 프레임 (Linoria 스타일 테마) ]]
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 560, 0, 420)
@@ -50,7 +50,7 @@ MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
 MainFrame.Active = true
 MainFrame.Draggable = true
 
--- 테마 포인트 라인 (상단에 붉은색 선 강조)
+-- 상단 붉은색 테마 포인트 라인
 local TopLine = Instance.new("Frame", MainFrame)
 TopLine.Size = UDim2.new(1, 0, 0, 2)
 TopLine.BackgroundColor3 = Color3.fromRGB(255, 0, 50)
@@ -86,7 +86,7 @@ ContentFrame.Size = UDim2.new(1, -24, 1, -75)
 ContentFrame.Position = UDim2.new(0, 12, 0, 65)
 ContentFrame.BackgroundTransparency = 1
 
--- [[ 6. 탭 페이지 및 좌우 스크롤 스플릿 빌더 ]]
+-- [[ 6. 탭 페이지 및 좌우 자동 확장 스크롤 빌더 ]]
 local Tabs = {}
 local function CreateTabPages(tabName)
     local Page = Instance.new("Frame", ContentFrame)
@@ -132,7 +132,7 @@ end
 local TabNames = {"main", "world", "esp", "visuals", "character", "misc", "setting"}
 for i, name in ipairs(TabNames) do CreateTabPages(name) end
 
--- 탭 버튼 셋업
+-- 탭 버튼 전환 로직
 local function SetupTabButton(name, order)
     local TabBtn = Instance.new("TextButton", TabBar)
     TabBtn.Size = UDim2.new(0, 76, 1, 0)
@@ -163,7 +163,7 @@ Tabs["main"].Page.Visible = true
 TabBar:GetChildren()[2].TextColor3 = Color3.fromRGB(255, 0, 50)
 TabBar:GetChildren()[2].BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 
--- [[ 7. 고품질 UI 컴포넌트 프레임워크 함수 정의 ]]
+-- [[ 7. 고품질 UI 컴포넌트 라이브러리 함수 ]]
 function _G.AddSection(parent, titleName)
     local SectionFrame = Instance.new("Frame", parent)
     SectionFrame.Size = UDim2.new(1, -4, 0, 10)
@@ -290,50 +290,43 @@ function _G.AddSlider(section, text, min, max, default, callback)
     end)
 end
 
--- [[ 8. 7대 탭 컴포넌트 실시간 완전 배치 ]]
+-- [[ 8. 7대 탭 레이아웃 메뉴 등록 세팅 ]]
 
--- 1. MAIN 탭 (에임봇)
 local MainSec = _G.AddSection(Tabs["main"].Left, "Silent Aim Settings")
 _G.AddToggle(MainSec, "Enable Silent Aim", false, function(v) CheatSettings.SilentAim = v end)
 _G.AddToggle(MainSec, "Show FOV Circle", false, function(v) CheatSettings.ShowFOV = v end)
 _G.AddSlider(MainSec, "Hit Chance", 0, 100, 100, function(v) CheatSettings.HitChance = v end)
 _G.AddSlider(MainSec, "FOV Radius", 50, 800, 150, function(v) CheatSettings.FOVSize = v end)
 
--- 2. WORLD 탭
 local WorldSec = _G.AddSection(Tabs["world"].Left, "Environment Mod")
 _G.AddToggle(WorldSec, "Fullbright (No Shadows)", false, function(v) 
     game:GetService("Lighting").Ambient = v and Color3.fromRGB(255,255,255) or Color3.fromRGB(127,127,127)
 end)
 
--- 3. ESP 탭
 local EspSec = _G.AddSection(Tabs["esp"].Left, "Visual ESP System")
 _G.AddToggle(EspSec, "Master ESP", false, function(v) CheatSettings.EspEnabled = v end)
 _G.AddToggle(EspSec, "Draw Boxes", false, function(v) CheatSettings.EspBoxes = v end)
 _G.AddToggle(EspSec, "Draw Snaplines", false, function(v) CheatSettings.EspTracers = v end)
 
--- 4. VISUALS 탭
 local VisualsSec = _G.AddSection(Tabs["visuals"].Left, "Screen Special Effects")
-_G.AddToggle(VisualsSec, "Enable Bloom Effect", false, function(v) print("Bloom toggle:", v) end)
+_G.AddToggle(VisualsSec, "Enable Bloom Effect", false, function(v) print("Bloom toggled:", v) end)
 
--- 5. CHARACTER 탭 (기동성)
 local CharSec = _G.AddSection(Tabs["character"].Left, "Speed & Fly Modifier")
 _G.AddSlider(CharSec, "WalkSpeed Value", 16, 150, 16, function(v) CheatSettings.WalkSpeedValue = v end)
 _G.AddToggle(CharSec, "Enable Fly Hack", false, function(v) CheatSettings.FlyHack = v end)
 
--- 6. MISC 탭 (무기 커스텀)
 local MiscSec = _G.AddSection(Tabs["misc"].Left, "Gun Modification")
 _G.AddToggle(MiscSec, "Instant Rapid Fire", false, function(v) CheatSettings.RapidFire = v end)
 _G.AddToggle(MiscSec, "No Spread / Recoil", false, function(v) CheatSettings.NoSpread = v end)
 _G.AddToggle(MiscSec, "Infinite Ammo", false, function(v) CheatSettings.InfAmmo = v end)
 
--- 7. SETTING 탭
 local SettingSec = _G.AddSection(Tabs["setting"].Left, "Configuration Profiles")
 _G.AddToggle(SettingSec, "Auto Load Configuration", false, function(v) print("Config Auto Load:", v) end)
 
 
--- [[ 9. 아까 가져온 105P, 9P 진짜 핵 엔진 본체 백엔드 연동 ]]
+-- [[ 9. 9P / 105P 연산 결합 기반 진짜 핵 백엔드 엔진 ]]
 
--- FOV 원그리기 드로잉 세팅
+-- 에임봇용 FOV 원 그리기 세팅
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(255, 0, 50)
 FOVCircle.Thickness = 1
@@ -360,7 +353,7 @@ local function GetClosestPlayer()
     return NearestTarget
 end
 
--- Silent Aim 엔진 비트 후킹 구현 (Metatable 개조)
+-- Silent Aim 메타테이블 레이캐스트 후킹 백엔드
 local OldNamecall
 OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local Method = getnamecallmethod()
@@ -379,23 +372,26 @@ OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return OldNamecall(self, ...)
 end)
 
--- 105페이지의 심장: RenderStepped 기반 최적화 실시간 연산 프레임워크 룹
+-- [105페이지의 심장] 캐릭터 리스폰 대응 완전형 최적화 실시간 연산 룹
 table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
     pcall(function()
-        -- 1. FOV 서클 상태 동기화
+        -- 1. FOV 서클 드로잉 위치 동기화
         FOVCircle.Visible = CheatSettings.ShowFOV
         FOVCircle.Radius = CheatSettings.FOVSize
         FOVCircle.Position = UserInputService:GetMouseLocation()
         
-        -- 2. 캐릭터 스피드 강제 고정 룹
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            local Hum = LocalPlayer.Character.Humanoid
-            if Hum.WalkSpeed ~= CheatSettings.WalkSpeedValue then
+        -- 2. 내 캐릭터 상태 실시간 실시간 트래킹 (리스폰 대응 끊김 방지)
+        local Char = LocalPlayer.Character
+        if Char then
+            local Hum = Char:FindFirstChildOfClass("Humanoid")
+            local HRP = Char:FindFirstChild("HumanoidRootPart")
+            
+            -- 스피드핵 강제 인젝션 고정
+            if Hum and Hum.WalkSpeed ~= CheatSettings.WalkSpeedValue then
                 Hum.WalkSpeed = CheatSettings.WalkSpeedValue
             end
             
-            -- 플라이 핵 루틴
-            local HRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            -- 플라이핵 연산 루틴
             if CheatSettings.FlyHack and HRP then
                 HRP.Velocity = Vector3.new(HRP.Velocity.X, 0, HRP.Velocity.Z)
                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
@@ -406,7 +402,7 @@ table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
             end
         end
         
-        -- 3. 무기 메카니즘 스크립트 모듈 변조 실시간 오버라이드
+        -- 3. 무기 모듈 데이터 탐색 오버라이드 룹
         if CheatSettings.RapidFire or CheatSettings.NoSpread or CheatSettings.InfAmmo then
             for _, v in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
                 if v:IsA("ModuleScript") and (v.Name:lower():find("weapon") or v.Name:lower():find("gun") or v.Name:lower():find("ammo")) then
@@ -422,7 +418,7 @@ table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
     end)
 end))
 
--- [[ 10. 마스터 UI 토글 제어 스위치 ]]
+-- [[ 10. 마스터 UI 토글 스위치 ]]
 local ToggleBtn = Instance.new("TextButton", ScreenGui)
 ToggleBtn.Name = "UIToggleButton"
 ToggleBtn.Size = UDim2.new(0, 50, 0, 32)
@@ -439,4 +435,4 @@ ToggleBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
-print("[SOLAR MASTER V1] 새로운 프리미엄 통합 UI 및 실시간 엔진 완전 세팅 완료!")
+print("[SOLAR MASTER V1] 전체 통합본 인젝션 완료! 준비되었습니다.")
