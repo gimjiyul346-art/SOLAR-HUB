@@ -444,15 +444,15 @@ end)
 
 print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
--- [통합 엔진: Silent Aim + Wallbang + Auto Farm + Box ESP]
+-- [최종 통합 엔진: 60줄 원본 로직 + 헤드샷 전용]
 -- ====================================================================
+
+-- 1. [형이 준 원본 60줄 로직]
 local replicated_storage = game:GetService("ReplicatedStorage");
 local players = game:GetService("Players");
-local RunService = game:GetService("RunService");
 local camera = workspace.CurrentCamera;
 local utility = require(replicated_storage.Modules.Utility);
 
--- [기존 로직]
 local get_players = function()
     local entities = {};
     for _, child in workspace:GetChildren() do
@@ -468,7 +468,6 @@ local get_players = function()
     end
     return entities
 end
-
 local get_closest_player = function()
     local closest, closest_distance = nil, math.huge;
     local character = players.LocalPlayer.Character;
@@ -487,54 +486,52 @@ local get_closest_player = function()
     return closest;
 end
 
--- [통합 Raycast Hook]
+-- 2. [헤드샷 전용으로 수정된 Raycast]
+local old = utility.Raycast; 
+utility.Raycast = function(...)
+    local arguments = {...};
+    -- 헤드 고정 로직: 999번 식별자일 때만 헤드로 좌표 강제 교체
+    if _G.SilentEnabled and (#arguments > 0 and arguments[4] == 999) then
+        local closest = get_closest_player();
+        if (closest and closest:FindFirstChild("Head")) then
+            -- [수정] 몸통이 아닌 무조건 머리 좌표로 고정
+            arguments[3] = closest.Head.CFrame.Position; 
+        end
+    end
+    return old(table.unpack(arguments));
+end
+
+-- 3. [기능 및 UI 통합 (나머지 기능들)]
+_G.SilentEnabled = false; _G.Wallbang = false; _G.AutoShoot = false; _G.AutoFarm = false;
+
+-- Wallbang 로직: 레이캐스트의 4번째 인자(필터)를 없애 벽 통과
 local oldRaycast = utility.Raycast
 utility.Raycast = function(...)
     local args = {...}
-    -- 1. Silent Aim (식별자 999일 때 머리로 고정)
-    if _G.SilentEnabled and (#args > 0 and args[4] == 999) then
-        local closest = get_closest_player();
-        if (closest and closest:FindFirstChild("Head")) then
-            args[3] = closest.Head.CFrame.Position; 
-        end
-    end
-    -- 2. Wallbang (식별자 999일 때 필터 제거)
-    if _G.Wallbang and #args > 0 and args[4] == 999 then 
-        args[4] = nil 
-    end
+    if _G.Wallbang and #args > 0 and args[4] == 999 then args[4] = nil end
     return oldRaycast(unpack(args))
 end
 
--- [상태 변수]
-_G.SilentEnabled = false; _G.Wallbang = false; _G.AutoShoot = false; _G.AutoFarm = false; _G.BoxESP = false;
-
--- [Main Loop: Auto Shoot + Auto Farm]
-RunService.RenderStepped:Connect(function()
+game:GetService("RunService").RenderStepped:Connect(function()
     if _G.AutoShoot then
         local target = get_closest_player()
         if target and players.LocalPlayer.Character and players.LocalPlayer.Character:FindFirstChildOfClass("Tool") then
             players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):Activate()
         end
     end
-    if _G.AutoFarm then
+    if _G.AutoFarm and players.LocalPlayer.Character then
         local target = get_closest_player()
-        if target and target:FindFirstChild("Head") and players.LocalPlayer.Character then
+        if target and target:FindFirstChild("Head") then
             players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 3, 0)
         end
     end
 end)
 
--- [UI 통합]
 task.spawn(function()
     repeat task.wait(0.5) until Tabs and Tabs["main"]
-    -- Combat 섹션
     local M = _G.AddSection(Tabs["main"].Left, "Combat")
     _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
     _G.AddToggle(M, "Wallbang", false, function(s) _G.Wallbang = s end)
     _G.AddToggle(M, "Auto Shoot", false, function(s) _G.AutoShoot = s end)
     _G.AddToggle(M, "Auto Farm", false, function(s) _G.AutoFarm = s end)
-    
-    -- ESP 섹션 (별도 탭이 없을 경우 대비 main 탭에 배치)
-    local E = _G.AddSection(Tabs["main"].Right, "ESP")
-    _G.AddToggle(E, "Box ESP", false, function(s) _G.BoxESP = s end)
 end)
