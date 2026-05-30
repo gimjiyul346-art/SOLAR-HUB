@@ -17,76 +17,53 @@ for _, v in pairs(CoreGui:GetChildren()) do
     if v.Name == "SOLAR_PREMIUM_UE" then v:Destroy() end
 end
 
--- [[ 2. 글로벌 치트 상태 변수 (UI 세팅값 저장소) ]]
-local CheatSettings = {
-    SilentAim = false,
-    HitChance = 100,
-    FOVSize = 150,
-    ShowFOV = false,
-    WalkSpeedValue = 16,
-    FlyHack = false,
-    RapidFire = false,
-    NoSpread = false,
-    InfAmmo = false,
-    EspEnabled = false,
-    EspBoxes = false,
-    EspTracers = false
-}
-
--- [[ 3. 최상위 GUI 스크린 생성 ]]
+-- [[ 2. 최상위 GUI 스크린 생성 ]]
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "SOLAR_PREMIUM_UE"
 ScreenGui.DisplayOrder = 999
-ScreenGui.ResetOnSpawn = false
 
--- [[ 4. 메인 백그라운드 프레임 (Linoria 스타일 테마) ]]
+-- [[ 3. 메인 백그라운드 프레임 (영상 속 디자인 반영) ]]
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 560, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -280, 0.5, -210)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.Size = UDim2.new(0, 550, 0, 440)
+MainFrame.Position = UDim2.new(0.5, -275, 0.5, -220)
+MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
 MainFrame.BorderSizePixel = 1
 MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
 MainFrame.Active = true
 MainFrame.Draggable = true
 
--- 상단 붉은색 테마 포인트 라인
-local TopLine = Instance.new("Frame", MainFrame)
-TopLine.Size = UDim2.new(1, 0, 0, 2)
-TopLine.BackgroundColor3 = Color3.fromRGB(255, 0, 50)
-TopLine.BorderSizePixel = 0
-
--- 상단 타이틀 바
+-- 상단 타이틀 바 고정
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, -15, 0, 30)
-Title.Position = UDim2.new(0, 12, 0, 2)
+Title.Size = UDim2.new(1, -15, 0, 25)
+Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "SOLAR HUB V1 PREMIUM - PREMIUM EDITION"
-Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+Title.Text = "SOLAR HUB V1 - discord.gg/VtPuHZQt8y"
+Title.TextColor3 = Color3.fromRGB(255, 0, 50)
 Title.Font = Enum.Font.Code
-Title.TextSize = 12
+Title.TextSize = 11
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- [[ 5. 7대 탭 메뉴 바 디자인 ]]
+-- [[ 4. 7대 탭 메뉴 바 디자인 ]]
 local TabBar = Instance.new("Frame", MainFrame)
-TabBar.Size = UDim2.new(1, -24, 0, 28)
-TabBar.Position = UDim2.new(0, 12, 0, 32)
-TabBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+TabBar.Size = UDim2.new(1, -24, 0, 26)
+TabBar.Position = UDim2.new(0, 12, 0, 25)
+TabBar.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
 TabBar.BorderSizePixel = 1
-TabBar.BorderColor3 = Color3.fromRGB(30, 30, 30)
+TabBar.BorderColor3 = Color3.fromRGB(35, 35, 35)
 
 local TabListLayout = Instance.new("UIListLayout", TabBar)
 TabListLayout.FillDirection = Enum.FillDirection.Horizontal
 TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabListLayout.Padding = UDim.new(0, 1)
+TabListLayout.Padding = UDim.new(0, 2)
 
--- 콘텐츠 스크린 영역
+-- 콘텐츠가 들어갈 메인 스크린 영역
 local ContentFrame = Instance.new("Frame", MainFrame)
-ContentFrame.Size = UDim2.new(1, -24, 1, -75)
-ContentFrame.Position = UDim2.new(0, 12, 0, 65)
+ContentFrame.Size = UDim2.new(1, -24, 1, -65)
+ContentFrame.Position = UDim2.new(0, 12, 0, 55)
 ContentFrame.BackgroundTransparency = 1
 
--- [[ 6. 탭 페이지 및 좌우 자동 확장 스크롤 빌더 ]]
+-- [[ 5. 탭 페이지 생성 및 레이아웃 빌더 ]]
 local Tabs = {}
 local function CreateTabPages(tabName)
     local Page = Instance.new("Frame", ContentFrame)
@@ -95,126 +72,114 @@ local function CreateTabPages(tabName)
     Page.BackgroundTransparency = 1
     Page.Visible = false
     
+    -- 각 탭 내부의 왼쪽 정렬 스크롤바
     local LeftScroll = Instance.new("ScrollingFrame", Page)
     LeftScroll.Name = "Left"
-    LeftScroll.Size = UDim2.new(0.5, -6, 1, 0)
+    LeftScroll.Size = UDim2.new(0.5, -5, 1, 0)
     LeftScroll.BackgroundTransparency = 1
     LeftScroll.BorderSizePixel = 0
-    LeftScroll.ScrollBarThickness = 3
+    LeftScroll.ScrollBarThickness = 2
     LeftScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 0, 50)
-    LeftScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     local L_Layout = Instance.new("UIListLayout", LeftScroll)
-    L_Layout.Padding = UDim.new(0, 8)
-    L_Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    L_Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        LeftScroll.CanvasSize = UDim2.new(0, 0, 0, L_Layout.AbsoluteContentSize.Y + 10)
-    end)
+    L_Layout.Padding = UDim.new(0, 10)
     
+    -- 각 탭 내부의 오른쪽 정렬 스크롤바
     local RightScroll = Instance.new("ScrollingFrame", Page)
     RightScroll.Name = "Right"
-    RightScroll.Size = UDim2.new(0.5, -6, 1, 0)
-    RightScroll.Position = UDim2.new(0.5, 6, 0, 0)
+    RightScroll.Size = UDim2.new(0.5, -5, 1, 0)
+    RightScroll.Position = UDim2.new(0.5, 5, 0, 0)
     RightScroll.BackgroundTransparency = 1
     RightScroll.BorderSizePixel = 0
-    RightScroll.ScrollBarThickness = 3
+    RightScroll.ScrollBarThickness = 2
     RightScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 0, 50)
-    RightScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     local R_Layout = Instance.new("UIListLayout", RightScroll)
-    R_Layout.Padding = UDim.new(0, 8)
-    R_Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    R_Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        RightScroll.CanvasSize = UDim2.new(0, 0, 0, R_Layout.AbsoluteContentSize.Y + 10)
-    end)
+    R_Layout.Padding = UDim.new(0, 10)
 
     Tabs[tabName] = {Left = LeftScroll, Right = RightScroll, Page = Page}
 end
 
+-- 형이 요청한 7대 탭 등록
 local TabNames = {"main", "world", "esp", "visuals", "character", "misc", "setting"}
-for i, name in ipairs(TabNames) do CreateTabPages(name) end
+for i, name in ipairs(TabNames) do
+    CreateTabPages(name)
+end
 
--- 탭 버튼 전환 로직
+-- 탭 전환 버튼 스크립트
 local function SetupTabButton(name, order)
     local TabBtn = Instance.new("TextButton", TabBar)
-    TabBtn.Size = UDim2.new(0, 76, 1, 0)
-    TabBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    TabBtn.Size = UDim2.new(0, 72, 1, 0)
+    TabBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
     TabBtn.BorderSizePixel = 0
     TabBtn.Text = name:upper()
-    TabBtn.TextColor3 = Color3.fromRGB(140, 140, 140)
+    TabBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
     TabBtn.Font = Enum.Font.Code
-    TabBtn.TextSize = 11
+    TabBtn.TextSize = 10
     TabBtn.LayoutOrder = order
 
     TabBtn.MouseButton1Click:Connect(function()
         for _, t in pairs(Tabs) do t.Page.Visible = false end
         for _, b in pairs(TabBar:GetChildren()) do
-            if b:IsA("TextButton") then 
-                b.TextColor3 = Color3.fromRGB(140, 140, 140)
-                b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-            end
+            if b:IsA("TextButton") then b.TextColor3 = Color3.fromRGB(150, 150, 150) end
         end
         Tabs[name].Page.Visible = true
         TabBtn.TextColor3 = Color3.fromRGB(255, 0, 50)
-        TabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     end)
 end
 
-for i, name in ipairs(TabNames) do SetupTabButton(name, i) end
-Tabs["main"].Page.Visible = true
+for i, name in ipairs(TabNames) do
+    SetupTabButton(name, i)
+end
+Tabs["main"].Page.Visible = true -- 첫 시작은 MAIN 탭 활성화
 TabBar:GetChildren()[2].TextColor3 = Color3.fromRGB(255, 0, 50)
-TabBar:GetChildren()[2].BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 
--- [[ 7. 고품질 UI 컴포넌트 라이브러리 함수 ]]
+-- [[ 6. 버튼 및 슬라이더를 담아줄 섹션 박스 함수 ]]
 function _G.AddSection(parent, titleName)
     local SectionFrame = Instance.new("Frame", parent)
-    SectionFrame.Size = UDim2.new(1, -4, 0, 10)
-    SectionFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+    SectionFrame.Size = UDim2.new(1, -5, 0, 150)
+    SectionFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
     SectionFrame.BorderSizePixel = 1
-    SectionFrame.BorderColor3 = Color3.fromRGB(32, 32, 32)
+    SectionFrame.BorderColor3 = Color3.fromRGB(255, 0, 50)
     
     local SecTitle = Instance.new("TextLabel", SectionFrame)
-    SecTitle.Size = UDim2.new(1, -10, 0, 16)
-    SecTitle.Position = UDim2.new(0, 8, 0, -8)
-    SecTitle.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
-    SecTitle.Text = " " .. titleName:lower() .. " "
+    SecTitle.Size = UDim2.new(1, -10, 0, 18)
+    SecTitle.Position = UDim2.new(0, 8, 0, 2)
+    SecTitle.BackgroundTransparency = 1
+    SecTitle.Text = titleName:lower()
     SecTitle.TextColor3 = Color3.fromRGB(255, 0, 50)
     SecTitle.Font = Enum.Font.Code
     SecTitle.TextSize = 11
     SecTitle.TextXAlignment = Enum.TextXAlignment.Left
     
     local Container = Instance.new("Frame", SectionFrame)
-    Container.Size = UDim2.new(1, -12, 1, -14)
-    Container.Position = UDim2.new(0, 6, 0, 8)
+    Container.Size = UDim2.new(1, -10, 1, -25)
+    Container.Position = UDim2.new(0, 5, 0, 22)
     Container.BackgroundTransparency = 1
     local C_Layout = Instance.new("UIListLayout", Container)
-    C_Layout.Padding = UDim.new(0, 6)
-    C_Layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    C_Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        SectionFrame.Size = UDim2.new(1, -4, 0, C_Layout.AbsoluteContentSize.Y + 18)
-    end)
+    C_Layout.Padding = UDim.new(0, 4)
     
     return Container
 end
 
+-- [[ 7. 온/오프 토글 스위치 뼈대 함수 ]]
 function _G.AddToggle(section, text, default, callback)
     local Row = Instance.new("Frame", section)
-    Row.Size = UDim2.new(1, 0, 0, 16)
+    Row.Size = UDim2.new(1, 0, 0, 20)
     Row.BackgroundTransparency = 1
     
     local Box = Instance.new("TextButton", Row)
     Box.Size = UDim2.new(0, 12, 0, 12)
-    Box.Position = UDim2.new(0, 2, 0.5, -6)
+    Box.Position = UDim2.new(0, 5, 0.5, -6)
     Box.BorderSizePixel = 1
-    Box.BorderColor3 = Color3.fromRGB(45, 45, 45)
+    Box.BorderColor3 = Color3.fromRGB(60, 60, 60)
     Box.Text = ""
-    Box.BackgroundColor3 = default and Color3.fromRGB(255, 0, 50) or Color3.fromRGB(22, 22, 22)
+    Box.BackgroundColor3 = default and Color3.fromRGB(255, 0, 50) or Color3.fromRGB(14, 14, 14)
     
     local Label = Instance.new("TextLabel", Row)
-    Label.Size = UDim2.new(1, -20, 1, 0)
-    Label.Position = UDim2.new(0, 20, 0, 0)
+    Label.Size = UDim2.new(1, -25, 1, 0)
+    Label.Position = UDim2.new(0, 22, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text:lower()
-    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.TextColor3 = Color3.fromRGB(180, 180, 180)
     Label.Font = Enum.Font.Code
     Label.TextSize = 11
     Label.TextXAlignment = Enum.TextXAlignment.Left
@@ -222,41 +187,43 @@ function _G.AddToggle(section, text, default, callback)
     local state = default
     Box.MouseButton1Click:Connect(function()
         state = not state
-        Box.BackgroundColor3 = state and Color3.fromRGB(255, 0, 50) or Color3.fromRGB(22, 22, 22)
+        Box.BackgroundColor3 = state and Color3.fromRGB(255, 0, 50) or Color3.fromRGB(14, 14, 14)
         callback(state)
     end)
 end
 
+-- [[ 8. 수치 조절용 슬라이더 뼈대 함수 ]]
 function _G.AddSlider(section, text, min, max, default, callback)
     local SliderRow = Instance.new("Frame", section)
-    SliderRow.Size = UDim2.new(1, 0, 0, 28)
+    SliderRow.Size = UDim2.new(1, 0, 0, 32)
     SliderRow.BackgroundTransparency = 1
 
     local Label = Instance.new("TextLabel", SliderRow)
-    Label.Size = UDim2.new(1, 0, 0, 12)
-    Label.Position = UDim2.new(0, 2, 0, 0)
+    Label.Size = UDim2.new(1, 0, 0, 14)
+    Label.Position = UDim2.new(0, 5, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text:lower()
-    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.TextColor3 = Color3.fromRGB(180, 180, 180)
     Label.Font = Enum.Font.Code
     Label.TextSize = 11
     Label.TextXAlignment = Enum.TextXAlignment.Left
 
     local ValueLabel = Instance.new("TextLabel", SliderRow)
-    ValueLabel.Size = UDim2.new(1, -4, 0, 12)
+    ValueLabel.Size = UDim2.new(1, -10, 0, 14)
+    ValueLabel.Position = UDim2.new(0, 0, 0, 0)
     ValueLabel.BackgroundTransparency = 1
-    ValueLabel.Text = default
+    ValueLabel.Text = default .. " / " .. max
     ValueLabel.TextColor3 = Color3.fromRGB(255, 0, 50)
     ValueLabel.Font = Enum.Font.Code
     ValueLabel.TextSize = 11
     ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
 
     local Track = Instance.new("TextButton", SliderRow)
-    Track.Size = UDim2.new(1, -4, 0, 8)
-    Track.Position = UDim2.new(0, 2, 0, 15)
-    Track.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    Track.Size = UDim2.new(1, -10, 0, 10)
+    Track.Position = UDim2.new(0, 5, 0, 16)
+    Track.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     Track.BorderSizePixel = 1
-    Track.BorderColor3 = Color3.fromRGB(35, 35, 35)
+    Track.BorderColor3 = Color3.fromRGB(40, 40, 40)
     Track.Text = ""
 
     local Fill = Instance.new("Frame", Track)
@@ -268,7 +235,7 @@ function _G.AddSlider(section, text, min, max, default, callback)
         local l = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
         Fill.Size = UDim2.new(l, 0, 1, 0)
         local val = math.floor(min + (max - min) * l)
-        ValueLabel.Text = tostring(val)
+        ValueLabel.Text = val .. " / " .. max
         callback(val)
     end
 
@@ -290,109 +257,123 @@ function _G.AddSlider(section, text, min, max, default, callback)
     end)
 end
 
--- [[ 8. 7대 탭 레이아웃 메뉴 등록 세팅 ]]
+-- [[ 9. 모바일/PC 통합 UI 숨기기 마스터 버튼 ]]
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Name = "UIToggleButton"
+ToggleBtn.Size = UDim2.new(0, 45, 0, 30)
+ToggleBtn.Position = UDim2.new(0, 15, 0, 15)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ToggleBtn.Text = "SOLAR"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 11
+ToggleBtn.BorderSizePixel = 1
+ToggleBtn.BorderColor3 = Color3.fromRGB(255, 0, 50)
 
-local MainSec = _G.AddSection(Tabs["main"].Left, "Silent Aim Settings")
-_G.AddToggle(MainSec, "Enable Silent Aim", false, function(v) CheatSettings.SilentAim = v end)
-_G.AddToggle(MainSec, "Show FOV Circle", false, function(v) CheatSettings.ShowFOV = v end)
-_G.AddSlider(MainSec, "Hit Chance", 0, 100, 100, function(v) CheatSettings.HitChance = v end)
-_G.AddSlider(MainSec, "FOV Radius", 50, 800, 150, function(v) CheatSettings.FOVSize = v end)
-
-local WorldSec = _G.AddSection(Tabs["world"].Left, "Environment Mod")
-_G.AddToggle(WorldSec, "Fullbright (No Shadows)", false, function(v) 
-    game:GetService("Lighting").Ambient = v and Color3.fromRGB(255,255,255) or Color3.fromRGB(127,127,127)
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
 end)
 
-local EspSec = _G.AddSection(Tabs["esp"].Left, "Visual ESP System")
-_G.AddToggle(EspSec, "Master ESP", false, function(v) CheatSettings.EspEnabled = v end)
-_G.AddToggle(EspSec, "Draw Boxes", false, function(v) CheatSettings.EspBoxes = v end)
-_G.AddToggle(EspSec, "Draw Snaplines", false, function(v) CheatSettings.EspTracers = v end)
-
-local VisualsSec = _G.AddSection(Tabs["visuals"].Left, "Screen Special Effects")
-_G.AddToggle(VisualsSec, "Enable Bloom Effect", false, function(v) print("Bloom toggled:", v) end)
-
-local CharSec = _G.AddSection(Tabs["character"].Left, "Speed & Fly Modifier")
-_G.AddSlider(CharSec, "WalkSpeed Value", 16, 150, 16, function(v) CheatSettings.WalkSpeedValue = v end)
-_G.AddToggle(CharSec, "Enable Fly Hack", false, function(v) CheatSettings.FlyHack = v end)
-
-local MiscSec = _G.AddSection(Tabs["misc"].Left, "Gun Modification")
-_G.AddToggle(MiscSec, "Instant Rapid Fire", false, function(v) CheatSettings.RapidFire = v end)
-_G.AddToggle(MiscSec, "No Spread / Recoil", false, function(v) CheatSettings.NoSpread = v end)
-_G.AddToggle(MiscSec, "Infinite Ammo", false, function(v) CheatSettings.InfAmmo = v end)
-
-local SettingSec = _G.AddSection(Tabs["setting"].Left, "Configuration Profiles")
-_G.AddToggle(SettingSec, "Auto Load Configuration", false, function(v) print("Config Auto Load:", v) end)
-
-
--- [[ 9. 9P / 105P 연산 결합 기반 진짜 핵 백엔드 엔진 ]]
-
--- 에임봇용 FOV 원 그리기 세팅
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Color = Color3.fromRGB(255, 0, 50)
-FOVCircle.Thickness = 1
-FOVCircle.Filled = false
-FOVCircle.Transparency = 1
-
-local function GetClosestPlayer()
-    local NearestTarget = nil
-    local MaxDistance = CheatSettings.FOVSize
-    local MousePos = UserInputService:GetMouseLocation()
-    
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            local ScreenPos, OnScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-            if OnScreen then
-                local Distance = (Vector2.new(ScreenPos.X, ScreenPos.Y) - MousePos).Magnitude
-                if Distance < MaxDistance then
-                    MaxDistance = Distance
-                    NearestTarget = player.Character
-                end
-            end
-        end
-    end
-    return NearestTarget
+-- 나머지 빈 탭들 에러 방지용 초기 셋업
+for _, name in pairs(TabNames) do
+    _G.AddSection(Tabs[name].Left, name .. " options")
 end
 
--- Silent Aim 메타테이블 레이캐스트 후킹 백엔드
-local OldNamecall
-OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local Method = getnamecallmethod()
-    local Args = {...}
-    if not checkcaller() and (Method == "FindPartOnRayWithIgnoreList" or Method == "Raycast") and CheatSettings.SilentAim then
-        if math.random(1, 100) <= CheatSettings.HitChance then
-            local Target = GetClosestPlayer()
-            if Target and Target:FindFirstChild("Head") then
-                if Method == "Raycast" then
-                    Args[2] = (Target.Head.Position - Args[1]).Unit * 1000
-                end
-                return OldNamecall(self, unpack(Args))
-            end
-        end
+print("[SOLAR BASE] UI Base Loaded! Ready for Functions.")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- [[ 1. 중복 실행 방지 및 예전 GUI 청소 ]]
+if _G.SolarConnections then
+    for _, conn in pairs(_G.SolarConnections) do
+        if conn then conn:Disconnect() end
     end
-    return OldNamecall(self, ...)
+end
+_G.SolarConnections = {}
+
+for _, v in pairs(CoreGui:GetChildren()) do
+    if v.Name == "SOLAR_CLASSIC_FLY_SKIN" then v:Destroy() end
+end
+
+-- [[ 2. 토글 상태 변수 ]]
+local FlyEnabled = false
+local SkinHackEnabled = false
+local SelectedSkin = "Ascend" -- 형이 저번에 말한 그 간지나는 에센드 스킨!
+
+-- [[ 3. 심플 다크 UI 생성 (처음 만들었던 그 감성) ]]
+local ScreenGui = Instance.new("ScreenGui", CoreGui)
+ScreenGui.Name = "SOLAR_CLASSIC_FLY_SKIN"
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 200, 0, 150)
+MainFrame.Position = UDim2.new(0.1, 0, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 1
+MainFrame.BorderColor3 = Color3.fromRGB(255, 0, 50)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "SOLAR PROTO V1"
+Title.TextColor3 = Color3.fromRGB(255, 0, 50)
+Title.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Title.Font = Enum.Font.Code
+Title.TextSize = 14
+
+-- 플라이 버튼
+local FlyBtn = Instance.new("TextButton", MainFrame)
+FlyBtn.Size = UDim2.new(0, 180, 0, 35)
+FlyBtn.Position = UDim2.new(0, 10, 0, 45)
+FlyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+FlyBtn.Text = "FLY HACK: OFF"
+FlyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+FlyBtn.Font = Enum.Font.Code
+FlyBtn.TextSize = 12
+
+-- 스킨해커 버튼
+local SkinBtn = Instance.new("TextButton", MainFrame)
+SkinBtn.Size = UDim2.new(0, 180, 0, 35)
+SkinBtn.Position = UDim2.new(0, 10, 0, 90)
+SkinBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+SkinBtn.Text = "SKIN HACK: OFF"
+SkinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+SkinBtn.Font = Enum.Font.Code
+SkinBtn.TextSize = 12
+
+-- [[ 4. UI 토글 이벤트 연결 ]]
+FlyBtn.MouseButton1Click:Connect(function()
+    FlyEnabled = not FlyEnabled
+    if FlyEnabled then
+        FlyBtn.Text = "FLY HACK: ON"
+        FlyBtn.TextColor3 = Color3.fromRGB(255, 0, 50)
+    else
+        FlyBtn.Text = "FLY HACK: OFF"
+        FlyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
 end)
 
--- [105페이지의 심장] 캐릭터 리스폰 대응 완전형 최적화 실시간 연산 룹
+SkinBtn.MouseButton1Click:Connect(function()
+    SkinHackEnabled = not SkinHackEnabled
+    if SkinHackEnabled then
+        SkinBtn.Text = "SKIN HACK: ON ("..SelectedSkin..")"
+        SkinBtn.TextColor3 = Color3.fromRGB(255, 0, 50)
+    else
+        SkinBtn.Text = "SKIN HACK: OFF"
+        SkinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
+end)
+
+-- [[ 5. 진짜 기능 작동 백엔드 루프 (여기가 핵심 본체) ]]
 table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
     pcall(function()
-        -- 1. FOV 서클 드로잉 위치 동기화
-        FOVCircle.Visible = CheatSettings.ShowFOV
-        FOVCircle.Radius = CheatSettings.FOVSize
-        FOVCircle.Position = UserInputService:GetMouseLocation()
-        
-        -- 2. 내 캐릭터 상태 실시간 실시간 트래킹 (리스폰 대응 끊김 방지)
-        local Char = LocalPlayer.Character
-        if Char then
-            local Hum = Char:FindFirstChildOfClass("Humanoid")
-            local HRP = Char:FindFirstChild("HumanoidRootPart")
-            
-            -- 스피드핵 강제 인젝션 고정
-            if Hum and Hum.WalkSpeed ~= CheatSettings.WalkSpeedValue then
-                Hum.WalkSpeed = CheatSettings.WalkSpeedValue
-            end
-            
-            -- 플라이핵 연산 루틴
-            if CheatSettings.FlyHack and HRP then
+        -- [기능 1] 캐릭터 죽어도 풀리지 않는 무한 플라이 핵
+        if FlyEnabled and LocalPlayer.Character then
+            local HRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if HRP then
                 HRP.Velocity = Vector3.new(HRP.Velocity.X, 0, HRP.Velocity.Z)
                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
                     HRP.CFrame = HRP.CFrame + Vector3.new(0, 1.5, 0)
@@ -401,16 +382,15 @@ table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
                 end
             end
         end
-        
-        -- 3. 무기 모듈 데이터 탐색 오버라이드 룹
-        if CheatSettings.RapidFire or CheatSettings.NoSpread or CheatSettings.InfAmmo then
+
+        -- [기능 2] Rivals 맞춤형 클라이언트 스킨 인젝터
+        if SkinHackEnabled then
+            -- ReplicatedStorage나 플레이어 내부의 무기 데이터 폴더를 탐색
             for _, v in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
-                if v:IsA("ModuleScript") and (v.Name:lower():find("weapon") or v.Name:lower():find("gun") or v.Name:lower():find("ammo")) then
-                    local data = require(v)
-                    if type(data) == "table" then
-                        if CheatSettings.NoSpread then data.Spread = 0 data.MinSpread = 0 data.Recoil = 0 end
-                        if CheatSettings.RapidFire then data.FireRate = 0.02 data.Cooldown = 0 end
-                        if CheatSettings.InfAmmo then data.Ammo = 999 data.ClipSize = 999 end
+                -- 무기 정보가 담긴 테이블이나 스트링값 강제 개조
+                if v:IsA("StringValue") and (v.Name == "EquippedSkin" or v.Name == "WeaponSkin") then
+                    if v.Value ~= SelectedSkin then
+                        v.Value = SelectedSkin -- 내 화면에 보이는 스킨을 강제로 'Ascend'로 고정
                     end
                 end
             end
@@ -418,21 +398,96 @@ table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
     end)
 end))
 
--- [[ 10. 마스터 UI 토글 스위치 ]]
-local ToggleBtn = Instance.new("TextButton", ScreenGui)
-ToggleBtn.Name = "UIToggleButton"
-ToggleBtn.Size = UDim2.new(0, 50, 0, 32)
-ToggleBtn.Position = UDim2.new(0, 15, 0, 15)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-ToggleBtn.Text = "SOLAR"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 0, 50)
-ToggleBtn.Font = Enum.Font.Code
-ToggleBtn.TextSize = 12
-ToggleBtn.BorderSizePixel = 1
-ToggleBtn.BorderColor3 = Color3.fromRGB(40, 40, 40)
+print("[SOLAR CLASSIC] 형이 처음 만들었던 오리지널 스킨+플라이 코드 복구 완료!")
+-- ====================================================================
+-- [최종 통합 엔진: 60줄 원본 로직 + 헤드샷 전용]
+-- ====================================================================
 
-ToggleBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
+-- 1. [형이 준 원본 60줄 로직]
+local replicated_storage = game:GetService("ReplicatedStorage");
+local players = game:GetService("Players");
+local camera = workspace.CurrentCamera;
+local utility = require(replicated_storage.Modules.Utility);
+
+local get_players = function()
+    local entities = {};
+    for _, child in workspace:GetChildren() do
+        if child:FindFirstChildOfClass("Humanoid") then
+            table.insert(entities, child);
+        elseif child.Name == "HurtEffect" then
+            for _, hurt_player in child:GetChildren() do
+                if (hurt_player.ClassName ~= "Highlight") then
+                    table.insert(entities, hurt_player);
+                end
+            end
+        end
+    end
+    return entities
+end
+local get_closest_player = function()
+    local closest, closest_distance = nil, math.huge;
+    local character = players.LocalPlayer.Character;
+    if (character == nil) then return; end
+    for _, player in get_players() do
+        if (player == players.LocalPlayer) then continue; end
+        if (not player:FindFirstChild("HumanoidRootPart")) then continue; end
+        local position, on_screen = camera:WorldToViewportPoint(player.HumanoidRootPart.Position);
+        if (on_screen == false) then continue; end
+        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
+        local distance = (center - Vector2.new(position.X, position.Y)).Magnitude;
+        if (distance > closest_distance) then continue; end
+        closest = player;
+        closest_distance = distance;
+    end
+    return closest;
+end
+
+-- 2. [헤드샷 전용으로 수정된 Raycast]
+local old = utility.Raycast; 
+utility.Raycast = function(...)
+    local arguments = {...};
+    -- 헤드 고정 로직: 999번 식별자일 때만 헤드로 좌표 강제 교체
+    if _G.SilentEnabled and (#arguments > 0 and arguments[4] == 999) then
+        local closest = get_closest_player();
+        if (closest and closest:FindFirstChild("Head")) then
+            -- [수정] 몸통이 아닌 무조건 머리 좌표로 고정
+            arguments[3] = closest.Head.CFrame.Position; 
+        end
+    end
+    return old(table.unpack(arguments));
+end
+
+-- 3. [기능 및 UI 통합 (나머지 기능들)]
+_G.SilentEnabled = false; _G.Wallbang = false; _G.AutoShoot = false; _G.AutoFarm = false;
+
+-- Wallbang 로직: 레이캐스트의 4번째 인자(필터)를 없애 벽 통과
+local oldRaycast = utility.Raycast
+utility.Raycast = function(...)
+    local args = {...}
+    if _G.Wallbang and #args > 0 and args[4] == 999 then args[4] = nil end
+    return oldRaycast(unpack(args))
+end
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if _G.AutoShoot then
+        local target = get_closest_player()
+        if target and players.LocalPlayer.Character and players.LocalPlayer.Character:FindFirstChildOfClass("Tool") then
+            players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):Activate()
+        end
+    end
+    if _G.AutoFarm and players.LocalPlayer.Character then
+        local target = get_closest_player()
+        if target and target:FindFirstChild("Head") then
+            players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.Head.CFrame + Vector3.new(0, 3, 0)
+        end
+    end
 end)
 
-print("[SOLAR MASTER V1] 전체 통합본 인젝션 완료! 준비되었습니다.")
+task.spawn(function()
+    repeat task.wait(0.5) until Tabs and Tabs["main"]
+    local M = _G.AddSection(Tabs["main"].Left, "Combat")
+    _G.AddToggle(M, "Silent Aim", false, function(s) _G.SilentEnabled = s end)
+    _G.AddToggle(M, "Wallbang", false, function(s) _G.Wallbang = s end)
+    _G.AddToggle(M, "Auto Shoot", false, function(s) _G.AutoShoot = s end)
+    _G.AddToggle(M, "Auto Farm", false, function(s) _G.AutoFarm = s end)
+end)
