@@ -280,125 +280,169 @@ for _, name in pairs(TabNames) do
 end
 
 print("[SOLAR BASE] UI Base Loaded! Ready for Functions.")
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
+-- ====================================================================
+-- ⚙️ [CHARACTER - CAMERA-ORIENTED FLY ENGINE]
+-- ====================================================================
 
--- [[ 1. 중복 실행 방지 및 예전 GUI 청소 ]]
-if _G.SolarConnections then
-    for _, conn in pairs(_G.SolarConnections) do
-        if conn then conn:Disconnect() end
-    end
-end
-_G.SolarConnections = {}
+_G.FlyEnabled = false
+local FlySpeed = 50
 
-for _, v in pairs(CoreGui:GetChildren()) do
-    if v.Name == "SOLAR_CLASSIC_FLY_SKIN" then v:Destroy() end
-end
+-- 비행 중 위치 유지를 위한 바디 포지션 오브젝트 세팅
+local FlyGyro, FlyPosition
 
--- [[ 2. 토글 상태 변수 ]]
-local FlyEnabled = false
-local SkinHackEnabled = false
-local SelectedSkin = "Ascend" -- 형이 저번에 말한 그 간지나는 에센드 스킨!
-
--- [[ 3. 심플 다크 UI 생성 (처음 만들었던 그 감성) ]]
-local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "SOLAR_CLASSIC_FLY_SKIN"
-
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 200, 0, 150)
-MainFrame.Position = UDim2.new(0.1, 0, 0.4, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.BorderSizePixel = 1
-MainFrame.BorderColor3 = Color3.fromRGB(255, 0, 50)
-MainFrame.Active = true
-MainFrame.Draggable = true
-
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "SOLAR PROTO V1"
-Title.TextColor3 = Color3.fromRGB(255, 0, 50)
-Title.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Title.Font = Enum.Font.Code
-Title.TextSize = 14
-
--- 플라이 버튼
-local FlyBtn = Instance.new("TextButton", MainFrame)
-FlyBtn.Size = UDim2.new(0, 180, 0, 35)
-FlyBtn.Position = UDim2.new(0, 10, 0, 45)
-FlyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-FlyBtn.Text = "FLY HACK: OFF"
-FlyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-FlyBtn.Font = Enum.Font.Code
-FlyBtn.TextSize = 12
-
--- 스킨해커 버튼
-local SkinBtn = Instance.new("TextButton", MainFrame)
-SkinBtn.Size = UDim2.new(0, 180, 0, 35)
-SkinBtn.Position = UDim2.new(0, 10, 0, 90)
-SkinBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-SkinBtn.Text = "SKIN HACK: OFF"
-SkinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-SkinBtn.Font = Enum.Font.Code
-SkinBtn.TextSize = 12
-
--- [[ 4. UI 토글 이벤트 연결 ]]
-FlyBtn.MouseButton1Click:Connect(function()
-    FlyEnabled = not FlyEnabled
-    if FlyEnabled then
-        FlyBtn.Text = "FLY HACK: ON"
-        FlyBtn.TextColor3 = Color3.fromRGB(255, 0, 50)
-    else
-        FlyBtn.Text = "FLY HACK: OFF"
-        FlyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    end
-end)
-
-SkinBtn.MouseButton1Click:Connect(function()
-    SkinHackEnabled = not SkinHackEnabled
-    if SkinHackEnabled then
-        SkinBtn.Text = "SKIN HACK: ON ("..SelectedSkin..")"
-        SkinBtn.TextColor3 = Color3.fromRGB(255, 0, 50)
-    else
-        SkinBtn.Text = "SKIN HACK: OFF"
-        SkinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    end
-end)
-
--- [[ 5. 진짜 기능 작동 백엔드 루프 (여기가 핵심 본체) ]]
-table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
-    pcall(function()
-        -- [기능 1] 캐릭터 죽어도 풀리지 않는 무한 플라이 핵
-        if FlyEnabled and LocalPlayer.Character then
-            local HRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if HRP then
-                HRP.Velocity = Vector3.new(HRP.Velocity.X, 0, HRP.Velocity.Z)
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                    HRP.CFrame = HRP.CFrame + Vector3.new(0, 1.5, 0)
-                elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                    HRP.CFrame = HRP.CFrame - Vector3.new(0, 1.5, 0)
+table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local HRP = LocalPlayer.Character.HumanoidRootPart
+        local Hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        
+        if _G.FlyEnabled and Hum and Hum.Health > 0 then
+            local MoveDirection = Vector3.new(0, 0, 0)
+            
+            -- [1] PC 키보드 입력 방향 연산 (카메라 LookVector 완벽 동기화)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then MoveDirection = MoveDirection + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then MoveDirection = MoveDirection - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then MoveDirection = MoveDirection - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then MoveDirection = MoveDirection + Camera.CFrame.RightVector end
+            
+            -- [2] 모바일 조이스틱 입력 방향 연산
+            -- 모바일 조이스틱을 움직였을 때, 캐릭터 평면 무빙을 카메라가 바라보는 입체 방향(3D Vector)으로 변환합니다.
+            if Hum.MoveDirection.Magnitude > 0 then
+                local CameraLook = Camera.CFrame.LookVector
+                local CameraRight = Camera.CFrame.RightVector
+                
+                -- 조이스틱의 앞/뒤, 좌/우 입력을 카메라 시선 기준으로 재조합
+                local ForwardMove = CameraLook * (Hum.MoveDirection:Dot(Camera.CFrame.LookVector) / CameraLook.Magnitude)
+                local SideMove = CameraRight * (Hum.MoveDirection:Dot(Camera.CFrame.RightVector) / CameraRight.Magnitude)
+                
+                -- 이동 벡터가 비정상적으로 튀는 현상 방지 보정
+                if (ForwardMove + SideMove).Magnitude > 0 then
+                    MoveDirection = MoveDirection + (ForwardMove + SideMove).Unit
                 end
             end
-        end
-
-        -- [기능 2] Rivals 맞춤형 클라이언트 스킨 인젝터
-        if SkinHackEnabled then
-            -- ReplicatedStorage나 플레이어 내부의 무기 데이터 폴더를 탐색
-            for _, v in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
-                -- 무기 정보가 담긴 테이블이나 스트링값 강제 개조
-                if v:IsA("StringValue") and (v.Name == "EquippedSkin" or v.Name == "WeaponSkin") then
-                    if v.Value ~= SelectedSkin then
-                        v.Value = SelectedSkin -- 내 화면에 보이는 스킨을 강제로 'Ascend'로 고정
-                    end
-                end
+            
+            -- [3] 수직 수동 제어 (PC: 스페이스바 / 모바일: 점프 버튼)
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) or Hum.Jump then 
+                MoveDirection = MoveDirection + Vector3.new(0, 1, 0) 
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then 
+                MoveDirection = MoveDirection - Vector3.new(0, 1, 0) 
+            end
+            
+            -- [4] 실제 좌표 이동 및 물리 제어
+            HRP.Velocity = Vector3.new(0, 0, 0) -- 중력 및 관성 제로화
+            
+            if MoveDirection.Magnitude > 0 then
+                -- 이동 중일 때: 시선 방향 벡터로 정밀 이동
+                HRP.CFrame = HRP.CFrame + (MoveDirection.Unit * (FlySpeed / 60))
+            else
+                -- 정지 중일 때 (호버링): 떨어지지 않고 공중에 고정되도록 강제 좌표 록온
+                HRP.CFrame = CFrame.new(HRP.Position, HRP.Position + Camera.CFrame.LookVector * Vector3.new(1, 0, 1))
             end
         end
-    end)
+    end
 end))
 
-print("[SOLAR CLASSIC] 형이 처음 만들었던 오리지널 스킨+플라이 코드 복구 완료!")
+-- 비행 중 벽 통과 및 낙하 대미지 유발 렉 차단 (Noclip 셋업)
+table.insert(_G.SolarConnections, RunService.Stepped:Connect(function()
+    if _G.FlyEnabled and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetChildren()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end))
+
+
+-- ====================================================================
+-- 📦 [CHARACTER 탭 마운트 구역]
+-- ====================================================================
+
+-- 기존 베이스 반복문이 미리 만들어둔 빈 character options 상자를 깔끔하게 제거
+if Tabs["character"] and Tabs["character"].Left then
+    for _, child in pairs(Tabs["character"].Left:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+end
+
+-- CHARACTER 탭 왼쪽 스크롤뷰에 개선된 방향성 FLY 기능 배치
+local CharacterSection = _G.AddSection(Tabs["character"].Left, "character configuration")
+_G.AddToggle(CharacterSection, "cross-platform fly", false, function(state) 
+    _G.FlyEnabled = state 
+end)
+_G.AddSlider(CharacterSection, "fly velocity speed", 20, 200, 50, function(val) 
+    FlySpeed = val 
+end)
+
+-- 레이아웃 스크롤 리사이징 갱신
+task.defer(function()
+    local scroll = Tabs["character"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
+    end
+end)
+
+print("[SOLAR] 시선 방향 인지형 3D Fly 엔진 패치 완료!")
+-- ====================================================================
+-- ⚙️ [MISC - SKIN CHANGER RUNNER] (게임 프리징 방지 우회 프로토콜)
+-- ====================================================================
+
+local SkinChangerExecuted = false
+
+local function ExecuteSkinChanger()
+    if SkinChangerExecuted then 
+        print("[SOLAR] Skin Changer가 이미 백엔드에서 구동 중입니다.")
+        return 
+    end
+    
+    SkinChangerExecuted = true
+    print("[SOLAR] Skin Changer 안전 로딩 시작...")
+
+    -- task.spawn을 사용하여 메인 UI 스레드와 분리된 독립 스레드에서 실행합니다.
+    -- 이 방식으로 실행하면 외부 깃허브 코드가 대량의 스킨 데이터를 불러올 때 발생하는 게임 멈춤(Freezing) 현상을 완전히 해결할 수 있습니다.
+    task.spawn(function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))()
+        end)
+        
+        if success then
+            print("[SOLAR] Skin Changer 소스 로드 성공!")
+        else
+            warn("[SOLAR] Skin Changer 로드 실패 (실행기 환경 확인 필요):", err)
+            SkinChangerExecuted = false -- 에러 발생 시 재시도 가능하도록 초기화
+        end
+    end)
+end
+
+
+-- ====================================================================
+-- 📦 [MISC 탭 마운트 구역]
+-- ====================================================================
+
+-- 기존 베이스 반복문이 미리 만들어둔 빈 misc options 상자를 깨끗하게 청소
+if Tabs["misc"] and Tabs["misc"].Left then
+    for _, child in pairs(Tabs["misc"].Left:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+end
+
+-- MISC 탭 왼쪽 스크롤뷰에 진짜 SKIN CHANGER 섹션 생성
+local MiscSection = _G.AddSection(Tabs["misc"].Left, "utility configuration")
+
+-- 토글이 켜지는 순간 프리징 방지 코드가 적용된 깃허브 스크립트가 로드됩니다.
+_G.AddToggle(MiscSection, "skin changer (unlock all)", false, function(state)
+    if state then
+        ExecuteSkinChanger()
+    end
+end)
+
+-- 레이아웃 스크롤 리사이징 자동 갱신
+task.defer(function()
+    local scroll = Tabs["misc"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
+    end
+end)
+
+print("[SOLAR] MISC 탭에 멈춤 방지형 Skin Changer 연동 완료!")
 -- ====================================================================
 -- [최종 통합 엔진: 60줄 원본 로직 + 헤드샷 전용]
 -- ====================================================================
