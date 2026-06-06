@@ -772,52 +772,37 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(setupPlayer)
 -- ====================================================================
--- 🌌 [PLAYER - ANTI-VOID (VOID SPAM) - 독립 실행형 모듈]
+-- 🔫 [INTEGRATION] MAIN 탭 RAPID FIRE 기능 결합
 -- ====================================================================
-
-_G.AntiVoidEnabled = false
-
--- 메인 루프: 캐릭터 위치 감시
-game:GetService("RunService").Heartbeat:Connect(function()
-    if _G.AntiVoidEnabled and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
-        if hrp.Position.Y < -100 then
-            hrp.CFrame = CFrame.new(0, 10, 0)
-            hrp.Velocity = Vector3.new(0, 0, 0)
-        end
-    end
-end)
-
--- UI 연동: 기존 GUI를 찾아서 섹션 추가
 task.spawn(function()
-    local CoreGui = game:GetService("CoreGui")
-    local mainGui = nil
-    
-    -- GUI가 로드될 때까지 최대 10초간 대기
-    for i = 1, 10 do
-        mainGui = CoreGui:FindFirstChild("SOLAR_PREMIUM_UE")
-        if mainGui then break end
-        task.wait(1)
-    end
+    -- UI가 로드될 때까지 대기
+    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["main"].Left
 
-    if mainGui then
-        -- GUI 내부의 MainFrame -> ContentFrame -> mainPage -> Left 스크롤을 직접 찾음
-        local contentFrame = mainGui:FindFirstChild("MainFrame", true):FindFirstChild("ContentFrame", true)
-        local mainPage = contentFrame:FindFirstChild("mainPage")
-        local leftScroll = mainPage:FindFirstChild("Left")
+    -- MAIN 탭의 왼쪽 섹션에 "Rapid Fire" 버튼 추가
+    local CombatSection = _G.AddSection(Tabs["main"].Left, "Combat")
 
-        if leftScroll then
-            local P = _G.AddSection(leftScroll, "player utilities")
-            _G.AddToggle(P, "anti-void (void spam)", false, function(state)
-                _G.AntiVoidEnabled = state
-            end)
-            
-            -- 레이아웃 갱신
-            if leftScroll:FindFirstChild("UIListLayout") then
-                leftScroll.CanvasSize = UDim2.new(0, 0, 0, leftScroll.UIListLayout.AbsoluteContentSize.Y + 20)
+    _G.AddToggle(CombatSection, "Rapid Fire", false, function(state)
+        if state then
+            -- 버튼을 켰을 때 형이 준 로직 실행
+            local Storage = game:GetService("ReplicatedStorage")
+            local Items = require(Storage.Modules.ItemLibrary).Items
+
+            for name, data in pairs(Items) do
+                if typeof(data) == "table" then
+                    if data.ShootCooldown then data.ShootCooldown = 0.001 end
+                    if data.ShootBurstCooldown then data.ShootBurstCooldown = 0.001 end
+                end
             end
+            print("[SOLAR] Rapid Fire Enabled")
+        else
+            -- 버튼을 껐을 때(옵션: 게임 기본값으로 복구하려면 게임을 재접속해야 할 수도 있음)
+            print("[SOLAR] Rapid Fire Disabled (Rejoin to reset defaults)")
         end
+    end)
+    
+    -- 레이아웃 갱신
+    local scroll = Tabs["main"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 30)
     end
 end)
-
-print("[SOLAR] Anti-Void 모듈이 독립적으로 마운트되었습니다.")
