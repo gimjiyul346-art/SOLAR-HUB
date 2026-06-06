@@ -772,101 +772,45 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(setupPlayer)
 -- ====================================================================
--- ⚙️ [엔진 업그레이드] 모듈 내부 테이블까지 침투하는 Rapid Fire 로직
+-- 🌌 [PLAYER - ANTI-VOID (VOID SPAM)]
 -- ====================================================================
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
 
-_G.RapidFireEnabled = false
-_G.FireRateSpeed = 0.5 -- 연사 간격 딜레이 (초 단위)
+_G.AntiVoidEnabled = false
 
--- 실시간 무기 연사속도 강제 오버라이딩 고리
-table.insert(_G.SolarConnections, RunService.RenderStepped:Connect(function()
-    if _G.RapidFireEnabled and Players.LocalPlayer.Character then
-        local tool = Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
-        if tool then
-            -- 1방식: 일반 Value 오브젝트 변수들 수정
-            local rateVariables = {"FireRate", "Cooldown", "Delay", "ShotDelay", "ShootInterval", "FireDelay"}
-            for _, varName in ipairs(rateVariables) do
-                local targetVal = tool:FindFirstChild(varName) or (tool:FindFirstChild("Settings") and tool.Settings:FindFirstChild(varName))
-                if targetVal and (targetVal:IsA("NumberValue") or targetVal:IsA("IntValue")) then
-                    targetVal.Value = _G.FireRateSpeed
-                end
-            end
-            
-            -- 2방식: 요즘 게임용 모듈 스크립트(ModuleScript) 내부 테이블 설정 강제 변조
-            for _, v in pairs(tool:GetDescendants()) do
-                if v:IsA("ModuleScript") then
-                    local success, config = pcall(require, v)
-                    if success and type(config) == "table" then
-                        for _, key in ipairs({"FireRate", "Cooldown", "Delay", "ShotDelay", "ShootInterval", "FireDelay", "BaseCooldown"}) do
-                            if config[key] ~= nil then
-                                config[key] = _G.FireRateSpeed -- 슬라이더로 조절한 초당 간격 강제 주입
-                            end
-                        end
-                    end
-                end
-            end
+-- 메인 런 서비스에 루프 삽입
+table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
+    if _G.AntiVoidEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        
+        -- Y좌표가 -100 이하로 떨어지면 (맵 밖으로 나감)
+        if hrp.Position.Y < -100 then
+            -- 안전한 좌표로 순간이동 및 관성 초기화
+            hrp.CFrame = CFrame.new(0, 10, 0)
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
         end
     end
 end))
 
--- ====================================================================
--- 🎛️ [UI 주입기] 기존 SOLAR UI 내부 Combat 섹션을 찾아 막대기 삽입
--- ====================================================================
+-- UI 마운트 (Main 탭에 섹션 추가)
 task.spawn(function()
-    -- 형의 메인 UI 프레임 구조가 생성될 때까지 안전하게 대기
-    local solarUi = nil
-    repeat 
-        solarUi = CoreGui:FindFirstChild("SOLAR_PREMIUM_UE")
-        task.wait(0.2)
-    until solarUi
+    -- 메인 탭이 로드될 때까지 대기
+    repeat task.wait(0.5) until Tabs and Tabs["main"]
     
-    local combatContainer = nil
-    local leftScroll = solarUi:FindFirstChild("MainFrame") 
-        and solarUi.MainFrame:FindFirstChild("ContentFrame") 
-        and solarUi.MainFrame.ContentFrame:FindFirstChild("mainPage") 
-        and solarUi.MainFrame.ContentFrame.mainPage:FindFirstChild("Left")
+    -- "Player" 섹션 생성
+    local PlayerSection = _G.AddSection(Tabs["main"].Left, "player utilities")
     
-    -- 형이 만든 기존 UI 내부에서 "combat"이라는 이름이 들어간 섹션 박스를 자동 추적
-    if leftScroll then
-        for _, section in pairs(leftScroll:GetChildren()) do
-            if section:IsA("Frame") then
-                local label = section:FindFirstChildOfClass("TextLabel")
-                if label and string.find(string.lower(label.Text), "combat") then
-                    combatContainer = section:FindFirstChildOfClass("Frame") -- 컴포넌트가 배치되는 내부 컨테이너 프레임
-                    break
-                end
-            end
-        end
-    end
+    -- 토글 버튼 추가
+    _G.AddToggle(PlayerSection, "anti-void (void spam)", false, function(state)
+        _G.AntiVoidEnabled = state
+        print("[SOLAR] Anti-Void 상태:", state)
+    end)
     
-    -- 만약 기존 Combat 섹션 박스를 못 찾으면 안전하게 오리지널 함수로 새 섹션을 파서 진입
-    if not combatContainer and leftScroll and _G.AddSection then
-        combatContainer = _G.AddSection(leftScroll, "Combat Rapid Fire")
-    end
-
-    -- 찾은 Combat 섹션 프레임 하단에 형이 만든 전역 함수(_G)로 스위치랑 슬라이더 바로 결합
-    if combatContainer and _G.AddToggle and _G.AddSlider then
-        -- 1. 기존 UI 디자인에 맞춰 토글 스위치 장착
-        _G.AddToggle(combatContainer, "Rapid Fire Engine", false, function(s) 
-            _G.RapidFireEnabled = s 
-        end)
-        
-        -- 2. 기존 UI 디자인에 맞춰 발사 속도 조절 막대(슬라이더) 장착
-        -- (100에 가까워질수록 연사 대기시간이 0.01초로 좁혀지며 무기 시스템 한계치까지 빠르게 발사됨)
-        _G.AddSlider(combatContainer, "Fire Speed Rate", 1, 100, 10, function(val)
-            local percentage = (val - 1) / 99
-            _G.FireRateSpeed = 0.5 - (percentage * 0.49) -- 숫자가 커질수록 딜레이를 줄이는 역산 보정
-        end)
-        
-        -- UI 크기가 늘어난 만큼 스크롤바 높이 자동 재계산 보정
-        task.wait(0.1)
-        if leftScroll:FindFirstChild("UIListLayout") then
-            leftScroll.CanvasSize = UDim2.new(0, 0, 0, leftScroll.UIListLayout.AbsoluteContentSize.Y + 30)
-        end
+    -- 레이아웃 갱신
+    local scroll = Tabs["main"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
     end
 end)
 
-print("[SOLAR OVERRIDE] 기존 Combat UI 하단에 연사 속도 조절 막대 결합 완료!")
+print("[SOLAR] Anti-Void 엔진이 성공적으로 통합되었습니다!")
