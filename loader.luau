@@ -536,96 +536,101 @@ task.spawn(function()
     _G.AddToggle(M, "Auto Farm", false, function(s) _G.AutoFarm = s end)
 end)
 -- ====================================================================
--- 👁️ [ESP 탭 - 텅 빈 네모 테두리 BOX ESP 엔진 (모바일 완벽 호환)]
+-- 👁️ [ESP 탭 - 버그 수정판: 실시간 2D BOX ESP (단일 루프 최적화)]
 -- ====================================================================
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
 _G.BoxEspEnabled = false
-local EspFolder = ScreenGui:FindFirstChild("SOLAR_ESP_LAYER") or Instance.new("Folder", ScreenGui)
-EspFolder.Name = "SOLAR_ESP_LAYER"
 
--- 사각형 박스를 만들어주는 함수
-local function CreateVisualBox(targetPlayer)
-    if targetPlayer == LocalPlayer then return end
-
-    local function UpdateLoop()
-        local BoxFrame = EspFolder:FindFirstChild(targetPlayer.Name .. "_Box")
-        
-        -- 박스가 없으면 생성 (속이 텅 비고 빨간 테두리선만 있는 구조)
-        if not BoxFrame then
-            BoxFrame = Instance.new("Frame")
-            BoxFrame.Name = targetPlayer.Name .. "_Box"
-            BoxFrame.BackgroundTransparency = 1 -- 속을 완전히 투명하게 (비워둠)
-            BoxFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-            
-            -- 두꺼운 네모 테두리 선 추가
-            local Stroke = Instance.new("UIStroke")
-            Stroke.Thickness = 2
-            Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            
-            -- 팀 구별 (적군은 빨간색, 팀원은 초록색)
-            if targetPlayer.Team and LocalPlayer.Team and targetPlayer.Team == LocalPlayer.Team then
-                Stroke.Color = Color3.fromRGB(0, 255, 100)
-            else
-                Stroke.Color = Color3.fromRGB(255, 0, 50) -- 적군 시그니처 빨간색 테두리
-            end
-            
-            Stroke.Parent = BoxFrame
-            BoxFrame.Parent = EspFolder
-        end
-
-        -- 실시간 위치 및 크기 계산 루프
-        local connection
-        connection = RunService.RenderStepped:Connect(function()
-            -- 토글이 꺼지거나, 유저가 나가거나, 캐릭터가 죽으면 박스 제거 및 루프 종료
-            if not _G.BoxEspEnabled or not targetPlayer or not targetPlayer.Parent or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                if BoxFrame then BoxFrame.Visible = false end
-                connection:Disconnect()
-                return
-            end
-
-            local char = targetPlayer.Character
-            local hrp = char.HumanoidRootPart
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-
-            if humanoid and humanoid.Health > 0 then
-                -- 3D 캐릭터 좌표를 모바일 2D 화면 좌표로 변환
-                local hrpPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-
-                if onScreen then
-                    -- 머리와 발 끝 좌표를 계산해서 사각형 박스의 정확한 높낮이 세팅
-                    local topPos = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0))
-                    local bottomPos = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, -3.5, 0))
-                    
-                    local boxHeight = math.abs(topPos.Y - bottomPos.Y)
-                    local boxWidth = boxHeight * 0.6 -- 현실적인 인간 비율의 가로폭
-
-                    BoxFrame.Size = UDim2.new(0, boxWidth, 0, boxHeight)
-                    BoxFrame.Position = UDim2.new(0, hrpPos.X, 0, hrpPos.Y)
-                    BoxFrame.Visible = true
-                else
-                    BoxFrame.Visible = false -- 화면 밖에 있으면 숨김
-                end
-            else
-                BoxFrame.Visible = false -- 죽어있으면 숨김
-            end
-        end)
-        table.insert(_G.SolarConnections, connection)
-    end
-
-    -- 캐릭터가 감지되면 루프 가동
-    if targetPlayer.Character then task.spawn(UpdateLoop) end
-    targetPlayer.CharacterAdded:Connect(function() task.spawn(UpdateLoop) end)
+-- 1. 기존에 엉뚱하게 띄워진 ESP 레이어 싹 다 청소
+local CoreGui = game:GetService("CoreGui")
+if CoreGui:FindFirstChild("SOLAR_ESP_LAYER") then
+    CoreGui.SOLAR_ESP_LAYER:Destroy()
 end
 
--- 서버 내 전원 감지 등록
-for _, p in pairs(Players:GetPlayers()) do CreateVisualBox(p) end
-table.insert(_G.SolarConnections, Players.PlayerAdded:Connect(CreateVisualBox))
+-- 2. 완벽한 2D 좌표를 위한 새 도화지 생성 (상단바 여백 무시 설정 필수)
+local EspFolder = Instance.new("ScreenGui")
+EspFolder.Name = "SOLAR_ESP_LAYER"
+EspFolder.IgnoreGuiInset = true -- [핵심] 이거 없으면 모바일에서 좌표 어긋남
+EspFolder.Parent = CoreGui
 
--- [[ ESP 탭 왼쪽 영역에 토글 주입 ]]
+-- 3. ESP 실시간 추적 메인 엔진 (루프 하나로 전체 통제)
+local function UpdateESP()
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local boxName = player.Name .. "_Box"
+            local boxFrame = EspFolder:FindFirstChild(boxName)
+
+            -- 플레이어가 살아있고 ESP가 켜져있을 때만 추적
+            if _G.BoxEspEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                
+                -- 박스가 없으면 생성 (속이 텅 빈 빨간 테두리)
+                if not boxFrame then
+                    boxFrame = Instance.new("Frame")
+                    boxFrame.Name = boxName
+                    boxFrame.BackgroundTransparency = 1
+                    boxFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+                    
+                    local stroke = Instance.new("UIStroke")
+                    stroke.Thickness = 1.5
+                    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                    stroke.Color = Color3.fromRGB(255, 0, 50) -- 솔라 시그니처 레드
+                    
+                    -- 팀 구별
+                    if player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team then
+                        stroke.Color = Color3.fromRGB(0, 255, 100)
+                    end
+                    
+                    stroke.Parent = boxFrame
+                    boxFrame.Parent = EspFolder
+                end
+
+                local hrp = player.Character.HumanoidRootPart
+                local head = player.Character:FindFirstChild("Head")
+
+                if head and hrp then
+                    -- 3D -> 2D 화면 좌표로 완벽 변환
+                    local rootPos, onScreen = cam:WorldToViewportPoint(hrp.Position)
+                    local headPos = cam:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                    local legPos = cam:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+
+                    if onScreen then
+                        -- 머리부터 발끝까지의 길이를 계산해서 박스 크기를 실시간 조절
+                        local height = math.abs(headPos.Y - legPos.Y)
+                        local width = height * 0.6 -- 캐릭터 가로 비율
+
+                        boxFrame.Size = UDim2.new(0, width, 0, height)
+                        boxFrame.Position = UDim2.new(0, rootPos.X, 0, rootPos.Y)
+                        boxFrame.Visible = true
+                    else
+                        boxFrame.Visible = false -- 화면 밖으로 벗어나면 숨김
+                    end
+                end
+            else
+                -- 죽었거나 ESP 끄면 박스 숨김
+                if boxFrame then
+                    boxFrame.Visible = false
+                end
+            end
+        end
+    end
+end
+
+-- 초당 60번씩 화면 갱신할 때마다 ESP 좌표 업데이트 (절대 안 멈춤)
+if _G.EspRenderLoop then _G.EspRenderLoop:Disconnect() end
+_G.EspRenderLoop = RunService.RenderStepped:Connect(UpdateESP)
+
+
+-- [[ ESP 탭 구역 마운트 및 UI 토글 주입 ]]
 task.spawn(function()
     repeat task.wait(0.1) until Tabs and Tabs["esp"] and Tabs["esp"].Left
     
-    -- 기존 청소
     for _, child in pairs(Tabs["esp"].Left:GetChildren()) do
         if child:IsA("Frame") and child.Name:lower():find("options") then
             child:Destroy()
@@ -636,26 +641,16 @@ task.spawn(function()
     
     _G.AddToggle(EspSection, "enemy box esp", false, function(state)
         _G.BoxEspEnabled = state
-        
-        if state then
-            -- 켜는 순간 기존 플레이어들 루프 일괄 즉시 재가동
-            EspFolder.Name = "SOLAR_ESP_LAYER"
-            for _, p in pairs(Players:GetPlayers()) do
-                CreateVisualBox(p)
+        if not state then
+            -- 끄면 찌꺼기 박스들 전부 안 보이게 초기화
+            for _, child in pairs(EspFolder:GetChildren()) do
+                child.Visible = false
             end
-            print("[SOLAR] 2D 테두리 Box ESP 정상 작동 시작.")
-        else
-            -- 끄면 화면에 그려진 모든 네모 상자 완전 파괴
-            EspFolder:ClearAllChildren()
-            print("[SOLAR] Box ESP 끄기 완료.")
         end
     end)
 
-    -- 스크롤 크기 리사이징
     local scroll = Tabs["esp"].Left
     if scroll and scroll:FindFirstChild("UIListLayout") then
         scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 30)
     end
 end)
-
-print("[SOLAR] 모바일 최적화 2D 테두리 Box ESP 패치 완료!")
