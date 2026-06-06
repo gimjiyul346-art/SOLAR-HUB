@@ -772,63 +772,143 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(setupPlayer)
 -- ====================================================================
--- ⚙️ [추가 장착: RAPID FIRE 공속 조절 백엔드 엔진]
+-- ⚙️ [완전 독립형] RAPID FIRE 공속 조절 백엔드 엔진
 -- ====================================================================
-_G.RapidFireEnabled = false
-_G.FireRateSpeed = 0.5 -- 기본 연사 딜레이 (초)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 
--- 실시간 무기 연사속도 필드 강제 오버라이딩 루프
-table.insert(_G.SolarConnections, game:GetService("RunService").RenderStepped:Connect(function()
-    if _G.RapidFireEnabled and Players.LocalPlayer.Character then
-        local tool = Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
-        if tool then
-            -- 로블록스 슈팅 게임에서 주로 쓰이는 연사속도 변수 명칭들 싹 다 추적
-            local rateVariables = {"FireRate", "Cooldown", "Delay", "ShotDelay", "ShootInterval", "FireDelay"}
-            for _, varName in ipairs(rateVariables) do
-                local targetVal = tool:FindFirstChild(varName) or (tool:FindFirstChild("Settings") and tool.Settings:FindFirstChild(varName))
-                if targetVal and (targetVal:IsA("NumberValue") or targetVal:IsA("IntValue")) then
-                    -- 슬라이더 조절 값을 무기 데이터 필드에 실시간 강제 강습 주입
-                    targetVal.Value = _G.FireRateSpeed
+_G.RapidFireEnabled = false
+_G.FireRateSpeed = 0.5 -- 기본 연사 속도 (초 단위 딜레이)
+
+-- 무기 내부 연사속도 스탯 실시간 강제 변환 루프
+task.spawn(function()
+    while task.wait(0.1) do
+        if _G.RapidFireEnabled and Players.LocalPlayer.Character then
+            local tool = Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if tool then
+                -- 로블록스 총싸움 게임들에서 자주 쓰는 연사속도/쿨다운 변수 이름들 전부 타겟팅
+                local rateVariables = {"FireRate", "Cooldown", "Delay", "ShotDelay", "ShootInterval", "FireDelay"}
+                for _, varName in ipairs(rateVariables) do
+                    local targetVal = tool:FindFirstChild(varName) or (tool:FindFirstChild("Settings") and tool.Settings:FindFirstChild(varName))
+                    if targetVal and (targetVal:IsA("NumberValue") or targetVal:IsA("IntValue")) then
+                        -- 우리가 슬라이더로 조절한 값을 무기 파일에 실시간 주입
+                        targetVal.Value = _G.FireRateSpeed
+                    end
                 end
             end
         end
     end
-end))
+end)
 
 -- ====================================================================
--- 🎛️ [추가 장착: COMBAT 섹션 하단 UI 조절 막대 자동 주입]
+-- 🎛️ [완전 독립형] 화면에 둥둥 뜨는 연사 조절 전용 미니 UI 박스
 -- ====================================================================
-task.spawn(function()
-    -- 형의 오리지널 메인 탭 셋업이 끝날 때까지 잠시 대기
-    repeat task.wait(0.1) until Tabs and Tabs["main"] and Tabs["main"].Left
-    
-    -- 형이 만들어둔 Combat 섹션 찾기 (없으면 새로 생성됨)
-    local CombatSection = Tabs["main"].Left:FindFirstChild("Combat") 
-        or Tabs["main"].Left:FindFirstChild("combat options")
-        or (Tabs["main"].Left:FindFirstChildOfClass("Frame") and Tabs["main"].Left:FindFirstChildOfClass("Frame"):FindFirstChild("Frame"))
-    
-    -- 만약 프레임 경로 추적이 안 되면 안전하게 새 섹션을 파서 진입
-    if not CombatSection then
-        CombatSection = _G.AddSection(Tabs["main"].Left, "Rapid Fire Config")
-    end
+local StandaloneGui = Instance.new("ScreenGui", CoreGui)
+StandaloneGui.Name = "SOLAR_RAPID_FIRE_BAR"
+StandaloneGui.DisplayOrder = 1000
 
-    -- 1. 연사 스위치 토글
-    _G.AddToggle(CombatSection, "Rapid Fire", false, function(s) 
-        _G.RapidFireEnabled = s 
-    end)
-    
-    -- 2. 1부터 100까지 게이지 바 (100에 가까울수록 내부 대기시간이 0.01초로 좁혀지며 미치도록 빠르게 발사됨)
-    _G.AddSlider(CombatSection, "Rapid Fire Speed Rate", 1, 100, 10, function(val)
-        local percentage = (val - 1) / 99
-        _G.FireRateSpeed = 0.5 - (percentage * 0.49) -- 숫자가 커질수록 딜레이 초(second)가 줄어드는 역산 보정
-    end)
+-- 미니 조절기 메인 프레임 (화면 왼쪽 상단에 배치, 드래그 가능)
+local RF_Frame = Instance.new("Frame", StandaloneGui)
+RF_Frame.Size = UDim2.new(0, 200, 0, 75)
+RF_Frame.Position = UDim2.new(0, 15, 0, 60) -- 기존 SOLAR 버튼 아래쪽에 배치됨
+RF_Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+RF_Frame.BorderSizePixel = 1
+RF_Frame.BorderColor3 = Color3.fromRGB(255, 0, 50)
+RF_Frame.Active = true
+RF_Frame.Draggable = true
 
-    -- UI 간격 늘어난 만큼 스크롤바 크기 리사이징 자동 갱신
-    task.wait(0.2)
-    local scroll = Tabs["main"].Left
-    if scroll and scroll:FindFirstChild("UIListLayout") then
-        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 30)
+-- 타이틀 (Rapid Fire)
+local RF_Title = Instance.new("TextLabel", RF_Frame)
+RF_Title.Size = UDim2.new(1, 0, 0, 20)
+RF_Title.BackgroundTransparency = 1
+RF_Title.Text = " RAPID FIRE SPEED CONTROL"
+RF_Title.TextColor3 = Color3.fromRGB(255, 0, 50)
+RF_Title.Font = Enum.Font.Code
+RF_Title.TextSize = 10
+RF_Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- 온오프 체크 버튼
+local ToggleBtn = Instance.new("TextButton", RF_Frame)
+ToggleBtn.Size = UDim2.new(0, 45, 0, 15)
+ToggleBtn.Position = UDim2.new(1, -55, 0, 3)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ToggleBtn.Text = "OFF"
+ToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+ToggleBtn.Font = Enum.Font.Code
+ToggleBtn.TextSize = 10
+ToggleBtn.BorderSizePixel = 1
+ToggleBtn.BorderColor3 = Color3.fromRGB(50, 50, 50)
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    _G.RapidFireEnabled = not _G.RapidFireEnabled
+    if _G.RapidFireEnabled then
+        ToggleBtn.Text = "ON"
+        ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 50)
+    else
+        ToggleBtn.Text = "OFF"
+        ToggleBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     end
 end)
 
-print("[SOLAR EXTENSION] 연사 속도(Rapid Fire) 조절 스위치 추가 결합 완료!")
+-- 수치 표시 라벨
+local ValueLabel = Instance.new("TextLabel", RF_Frame)
+ValueLabel.Size = UDim2.new(1, -15, 0, 15)
+ValueLabel.Position = UDim2.new(0, 0, 0, 25)
+ValueLabel.BackgroundTransparency = 1
+ValueLabel.Text = "speed: 10 / 100"
+ValueLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+ValueLabel.Font = Enum.Font.Code
+ValueLabel.TextSize = 11
+ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+-- 슬라이더 트랙 (조절 막대 배경)
+local Track = Instance.new("TextButton", RF_Frame)
+Track.Size = UDim2.new(1, -20, 0, 10)
+Track.Position = UDim2.new(0, 10, 0, 45)
+Track.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Track.BorderSizePixel = 1
+Track.BorderColor3 = Color3.fromRGB(40, 40, 40)
+Track.Text = ""
+
+-- 슬라이더 게이지 채우기
+local Fill = Instance.new("Frame", Track)
+Fill.Size = UDim2.new((10 - 1) / 99, 0, 1, 0) -- 기본값 10 세팅 비율
+Fill.BackgroundColor3 = Color3.fromRGB(255, 0, 50)
+Fill.BorderSizePixel = 0
+
+-- 슬라이더 수치 계산 함수
+local function UpdateSlider(input)
+    local percentage = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
+    Fill.Size = UDim2.new(percentage, 0, 1, 0)
+    
+    local val = math.floor(1 + (99 * percentage))
+    ValueLabel.Text = "speed: " .. val .. " / 100"
+    
+    -- 100에 가까워질수록 발사 딜레이 간격(초)을 0.01초까지 압축해서 미친듯이 빠르게 나가게 만듦
+    _G.FireRateSpeed = 0.5 - (percentage * 0.49)
+end
+
+-- 마우스 및 모바일 터치 드래그 입력 연동
+local IsDragging = false
+Track.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        IsDragging = true
+        UpdateSlider(input)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if IsDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        UpdateSlider(input)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        IsDragging = false
+    end
+end)
+
+print("[SOLAR STANDALONE] 독립형 연사 조절기 주입 완료!")
