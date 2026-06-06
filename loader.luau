@@ -535,3 +535,76 @@ task.spawn(function()
     _G.AddToggle(M, "Auto Shoot", false, function(s) _G.AutoShoot = s end)
     _G.AddToggle(M, "Auto Farm", false, function(s) _G.AutoFarm = s end)
 end)
+-- ====================================================================
+-- ⚡ [MAIN 탭 - 초고속 연사 속도 (FAST FIRE) 엔진]
+-- ====================================================================
+
+_G.FastFireEnabled = false
+local fireRateNormal = 0.2
+local fireRateFast = 0.05 -- 형이 설정한 고속 연사 속도
+
+-- [연사 속도 가로채기 루프]
+-- 내 캐릭터가 들고 있는 총의 무기 쿨타임 및 공격 지연 속도 변수를 실시간으로 조작합니다.
+table.insert(_G.SolarConnections, game:GetService("RunService").Heartbeat:Connect(function()
+    if _G.FastFireEnabled and LocalPlayer.Character then
+        local currentTool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+        if currentTool then
+            -- 1. 일반적인 총 패키지 스크립트들의 연사 딜레이 변수들 일괄 훅
+            local config = currentTool:FindFirstChild("Configuration") or currentTool:FindFirstChild("Settings")
+            if config then
+                local coolDown = config:FindFirstChild("Cooldown") or config:FindFirstChild("FireRate") or config:FindFirstChild("Delay")
+                if coolDown and coolDown:IsA("ValueBase") then
+                    coolDown.Value = fireRateFast
+                end
+            end
+            
+            -- 2. 스크립트 내부 변수 변조 (기본 무기 쿨타임 파괴)
+            for _, v in pairs(currentTool:GetDescendants()) do
+                if v:IsA("NumberValue") or v:IsA("DoubleConstrainedValue") then
+                    if v.Name:lower():find("cooldown") or v.Name:lower():find("firerate") or v.Name:lower():find("delay") then
+                        v.Value = fireRateFast
+                    end
+                end
+            end
+        end
+    end
+end))
+
+-- [[ MAIN 탭 Combat 섹션에 Fast Fire 토글 UI 추가 ]]
+task.spawn(function()
+    -- UI 탭이 완전히 생성될 때까지 대기
+    repeat task.wait(0.1) until Tabs and Tabs["main"] and Tabs["main"].Left
+    
+    -- 이미 생성된 Combat 섹션을 찾거나 새로 정렬하기 위해 대기 후 토글 주입
+    task.wait(0.5)
+    local combatSection = nil
+    for _, child in pairs(Tabs["main"].Left:GetChildren()) do
+        if child:IsA("Frame") and child:FindFirstChild("TextLabel") and child.TextLabel.Text:find("combat") then
+            combatSection = child:FindFirstChild("Frame") or child -- 컨테이너 박스 타겟팅
+            break
+        end
+    end
+    
+    -- 만약 기존 섹션을 못 찾으면 안전하게 새로 하나 더 만들어서 배치
+    if not combatSection then
+        combatSection = _G.AddSection(Tabs["main"].Left, "Weapon Mod")
+    end
+    
+    -- 형이 가져온 버튼 토글 기능을 솔라 허브 전용 UI 토글로 완벽 이식!
+    _G.AddToggle(combatSection, "Fast Fire Mode", false, function(state)
+        _G.FastFireEnabled = state
+        if state then
+            print("[SOLAR] 초고속 연사 매직 프로토콜 활성화 (딜레이: " .. fireRateFast .. ")")
+        else
+            print("[SOLAR] 연사 속도 정상화 (디폴트 유지)")
+        end
+    end)
+    
+    -- 레이아웃 스크롤 리사이징 갱신
+    local scroll = Tabs["main"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 30)
+    end
+end)
+
+print("[SOLAR] 기존 베이스에 Fast Fire 기능 무결점 병합 완료!")
