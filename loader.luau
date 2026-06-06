@@ -772,43 +772,40 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(setupPlayer)
 -- ====================================================================
--- 🔫 [강제 삽입 버전] RAPID FIRE 기능 추가
+-- 🔫 RAPID FIRE INTEGRATION (MAIN - COMBAT)
 -- ====================================================================
 task.spawn(function()
     -- UI 로드 대기
     repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["main"].Left
 
-    -- 1. 무조건 새 섹션을 만들어서 'Rapid Fire' 버튼을 강제로 주입함
-    local NewSection = _G.AddSection(Tabs["main"].Left, "Rapid Fire")
+    -- Combat 섹션 찾기 또는 생성
+    local CombatSection = nil
+    for _, child in pairs(Tabs["main"].Left:GetChildren()) do
+        if child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") then
+            if string.find(string.lower(child:FindFirstChildOfClass("TextLabel").Text), "combat") then
+                CombatSection = child:FindFirstChildOfClass("Frame")
+                break
+            end
+        end
+    end
+    
+    if not CombatSection then
+        CombatSection = _G.AddSection(Tabs["main"].Left, "Combat")
+    end
 
-    -- 2. 버튼 생성
-    _G.AddToggle(NewSection, "Rapid Fire", false, function(state)
+    -- 토글 생성
+    _G.AddToggle(CombatSection, "Rapid Fire", false, function(state)
         if state then
-            -- 로직 실행
+            -- 형이 준 코드 그대로 실행
             local Storage = game:GetService("ReplicatedStorage")
-            local ItemLib = Storage:FindFirstChild("Modules") and Storage.Modules:FindFirstChild("ItemLibrary")
-            
-            if ItemLib then
-                local Items = require(ItemLib)
-                -- Items가 함수일 수도, 테이블일 수도 있으므로 안전하게 추출
-                local itemTable = (type(Items) == "table") and Items or (Items.Items or Items)
-                
-                for _, data in pairs(itemTable) do
-                    if typeof(data) == "table" then
-                        if data.ShootCooldown then data.ShootCooldown = 0.001 end
-                        if data.ShootBurstCooldown then data.ShootBurstCooldown = 0.001 end
-                    end
+            local Items = require(Storage.Modules.ItemLibrary).Items
+
+            for name, data in pairs(Items) do
+                if typeof(data) == "table" then
+                    if data.ShootCooldown then data.ShootCooldown = 0.001 end
+                    if data.ShootBurstCooldown then data.ShootBurstCooldown = 0.001 end
                 end
-                print("[SOLAR] Rapid Fire 로직 실행됨")
-            else
-                print("[SOLAR] ItemLibrary 경로를 찾지 못함 (게임마다 다를 수 있음)")
             end
         end
     end)
-    
-    -- 레이아웃 강제 갱신
-    local scroll = Tabs["main"].Left
-    if scroll and scroll:FindFirstChild("UIListLayout") then
-        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 100)
-    end
 end)
