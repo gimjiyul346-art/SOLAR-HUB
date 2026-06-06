@@ -536,75 +536,109 @@ task.spawn(function()
     _G.AddToggle(M, "Auto Farm", false, function(s) _G.AutoFarm = s end)
 end)
 -- ====================================================================
--- ⚡ [MAIN 탭 - 초고속 연사 속도 (FAST FIRE) 엔진]
+-- 👁️ [ESP 탭 - 실시간 BOX ESP 엔진 (렉 제로 최적화)]
 -- ====================================================================
 
-_G.FastFireEnabled = false
-local fireRateNormal = 0.2
-local fireRateFast = 0.05 -- 형이 설정한 고속 연사 속도
+_G.BoxEspEnabled = false
 
--- [연사 속도 가로채기 루프]
--- 내 캐릭터가 들고 있는 총의 무기 쿨타임 및 공격 지연 속도 변수를 실시간으로 조작합니다.
-table.insert(_G.SolarConnections, game:GetService("RunService").Heartbeat:Connect(function()
-    if _G.FastFireEnabled and LocalPlayer.Character then
-        local currentTool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-        if currentTool then
-            -- 1. 일반적인 총 패키지 스크립트들의 연사 딜레이 변수들 일괄 훅
-            local config = currentTool:FindFirstChild("Configuration") or currentTool:FindFirstChild("Settings")
-            if config then
-                local coolDown = config:FindFirstChild("Cooldown") or config:FindFirstChild("FireRate") or config:FindFirstChild("Delay")
-                if coolDown and coolDown:IsA("ValueBase") then
-                    coolDown.Value = fireRateFast
-                end
-            end
-            
-            -- 2. 스크립트 내부 변수 변조 (기본 무기 쿨타임 파괴)
-            for _, v in pairs(currentTool:GetDescendants()) do
-                if v:IsA("NumberValue") or v:IsA("DoubleConstrainedValue") then
-                    if v.Name:lower():find("cooldown") or v.Name:lower():find("firerate") or v.Name:lower():find("delay") then
-                        v.Value = fireRateFast
-                    end
-                end
-            end
+-- 플레이어에게 박스를 생성하고 업데이트하는 메인 루프 함수
+local function ApplyBoxESP(targetPlayer)
+    -- 자기 자신은 제외
+    if targetPlayer == LocalPlayer then return end
+
+    -- 화면에 박스를 그려줄 빌보드 GUI 생성
+    local function CreateBox(char)
+        if char:FindFirstChild("SOLAR_BOX") then char.SOLAR_BOX:Destroy() end
+
+        local BillboardGui = Instance.new("BillboardGui")
+        local Frame = Instance.new("Frame")
+        local UIStroke = Instance.new("UIStroke")
+
+        BillboardGui.Name = "SOLAR_BOX"
+        BillboardGui.AlwaysOnTop = true
+        BillboardGui.Size = UDim2.new(4.5, 0, 6, 0) -- 캐릭터 크기에 맞춘 박스 사이즈
+        BillboardGui.Adornee = char:WaitForChild("HumanoidRootPart", 5)
+        BillboardGui.SetActive(false)
+
+        Frame.Size = UDim2.new(1, 0, 1, 0)
+        Frame.BackgroundTransparency = 1 -- 속은 투명하게
+
+        -- 테두리 선 설정 (적군은 빨간색, 팀원은 투명하게 처리하거나 스킵)
+        UIStroke.Thickness = 2
+        
+        -- 팀 구별 로직 (Rivals 및 일반 팀 게임 대응)
+        if targetPlayer.Team and LocalPlayer.Team and targetPlayer.Team == LocalPlayer.Team then
+            UIStroke.Color = Color3.fromRGB(0, 255, 100) -- 팀원은 초록색
+            BillboardGui.Enabled = false -- 기본적으로 팀원 ESP는 꺼둠 (렉 방지)
+        else
+            UIStroke.Color = Color3.fromRGB(255, 0, 50) -- 적군은 솔라 시그니처 빨간색
         end
+
+        UIStroke.Parent = Frame
+        Frame.Parent = BillboardGui
+        
+        -- 토글 상태에 따라 실시간 온오프 제어
+        BillboardGui.Enabled = _G.BoxEspEnabled
+        BillboardGui.Parent = char
     end
+
+    -- 캐릭터가 새로 스폰될 때마다 박스 재부팅
+    if targetPlayer.Character then
+        task.spawn(function() CreateBox(targetPlayer.Character) end)
+    end
+    targetPlayer.CharacterAdded:Connect(function(char)
+        task.spawn(function() CreateBox(char) end)
+    end)
+end
+
+-- 현재 서버에 있는 유저들 전체 세팅
+for _, p in pairs(Players:GetPlayers()) do
+    ApplyBoxESP(p)
+end
+
+-- 새로 들어오는 유저들도 자동 추적 감지
+table.insert(_G.SolarConnections, Players.PlayerAdded:Connect(function(p)
+    ApplyBoxESP(p)
 end))
 
--- [[ MAIN 탭 Combat 섹션에 Fast Fire 토글 UI 추가 ]]
+-- [[ ESP 탭 구역 마운트 및 UI 토글 주입 ]]
 task.spawn(function()
-    -- UI 탭이 완전히 생성될 때까지 대기
-    repeat task.wait(0.1) until Tabs and Tabs["main"] and Tabs["main"].Left
+    -- ESP 탭 베이스가 빌드될 때까지 대기
+    repeat task.wait(0.1) until Tabs and Tabs["esp"] and Tabs["esp"].Left
     
-    -- 이미 생성된 Combat 섹션을 찾거나 새로 정렬하기 위해 대기 후 토글 주입
-    task.wait(0.5)
-    local combatSection = nil
-    for _, child in pairs(Tabs["main"].Left:GetChildren()) do
-        if child:IsA("Frame") and child:FindFirstChild("TextLabel") and child.TextLabel.Text:find("combat") then
-            combatSection = child:FindFirstChild("Frame") or child -- 컨테이너 박스 타겟팅
-            break
+    -- 기존에 베이스 코드가 깔아둔 빈 상자(esp options) 청소하기
+    for _, child in pairs(Tabs["esp"].Left:GetChildren()) do
+        if child:IsA("Frame") and child.Name:lower():find("options") then
+            child:Destroy()
         end
     end
     
-    -- 만약 기존 섹션을 못 찾으면 안전하게 새로 하나 더 만들어서 배치
-    if not combatSection then
-        combatSection = _G.AddSection(Tabs["main"].Left, "Weapon Mod")
-    end
+    -- ESP 탭 전용 섹션 새로 빌드
+    local EspSection = _G.AddSection(Tabs["esp"].Left, "visual esp options")
     
-    -- 형이 가져온 버튼 토글 기능을 솔라 허브 전용 UI 토글로 완벽 이식!
-    _G.AddToggle(combatSection, "Fast Fire Mode", false, function(state)
-        _G.FastFireEnabled = state
+    -- 솔라 UI 규격에 딱 맞는 Box ESP 토글 스위치 생성
+    _G.AddToggle(EspSection, "enemy box esp", false, function(state)
+        _G.BoxEspEnabled = state
+        
+        -- 서버 내 모든 캐릭터의 박스 UI를 실시간으로 켜고 끄기 전환
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("SOLAR_BOX") then
+                p.Character.SOLAR_BOX.Enabled = state
+            end
+        end
+        
         if state then
-            print("[SOLAR] 초고속 연사 매직 프로토콜 활성화 (딜레이: " .. fireRateFast .. ")")
+            print("[SOLAR] 전방 적군 탐지 레이더 Box ESP 가동.")
         else
-            print("[SOLAR] 연사 속도 정상화 (디폴트 유지)")
+            print("[SOLAR] Box ESP 비활성화.")
         end
     end)
-    
+
     -- 레이아웃 스크롤 리사이징 갱신
-    local scroll = Tabs["main"].Left
+    local scroll = Tabs["esp"].Left
     if scroll and scroll:FindFirstChild("UIListLayout") then
         scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 30)
     end
 end)
 
-print("[SOLAR] 기존 베이스에 Fast Fire 기능 무결점 병합 완료!")
+print("[SOLAR] ESP 탭 내부 전용 Box ESP 모듈 무결점 병합 완료!")
