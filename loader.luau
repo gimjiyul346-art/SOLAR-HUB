@@ -772,67 +772,63 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(setupPlayer)
 -- ====================================================================
--- 🔫 [무기 탭 - 실시간 총기 연사 속도 조절 엔진]
+-- ⚙️ [추가 장착: RAPID FIRE 공속 조절 백엔드 엔진]
 -- ====================================================================
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
--- 전역 변수 설정 (기본값: 꺼짐 / 기본 연사 딜레이 0.1초)
 _G.RapidFireEnabled = false
-_G.FireRateSpeed = 0.1 
+_G.FireRateSpeed = 0.5 -- 기본 연사 딜레이 (초)
 
--- [핵심] 캐릭터가 총을 들었을 때 연사 속도 변수들을 강제로 변조하는 루프
-RunService.RenderStepped:Connect(function()
-    if not _G.RapidFireEnabled then return end
-    
-    local character = LocalPlayer.Character
-    if character then
-        -- 현재 손에 들고 있는 총(Tool) 찾기
-        local tool = character:FindFirstChildOfClass("Tool")
+-- 실시간 무기 연사속도 필드 강제 오버라이딩 루프
+table.insert(_G.SolarConnections, game:GetService("RunService").RenderStepped:Connect(function()
+    if _G.RapidFireEnabled and Players.LocalPlayer.Character then
+        local tool = Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
         if tool then
-            -- 로블록스 총기 스크립트에서 흔히 쓰는 연사 속도 관련 변수 이름들
-            local rateVariables = {"FireRate", "Cooldown", "Delay", "ShotDelay", "ShootInterval"}
-            
+            -- 로블록스 슈팅 게임에서 주로 쓰이는 연사속도 변수 명칭들 싹 다 추적
+            local rateVariables = {"FireRate", "Cooldown", "Delay", "ShotDelay", "ShootInterval", "FireDelay"}
             for _, varName in ipairs(rateVariables) do
-                -- 총 안에 바로 있거나, Settings 폴더 안에 숨겨져 있는 경우 둘 다 탐색
                 local targetVal = tool:FindFirstChild(varName) or (tool:FindFirstChild("Settings") and tool.Settings:FindFirstChild(varName))
-                
                 if targetVal and (targetVal:IsA("NumberValue") or targetVal:IsA("IntValue")) then
-                    -- 막대(Slider)로 조절한 초 단위 딜레이 값을 실시간 주입 (값이 작을수록 개빨라짐)
+                    -- 슬라이더 조절 값을 무기 데이터 필드에 실시간 강제 강습 주입
                     targetVal.Value = _G.FireRateSpeed
                 end
             end
         end
     end
-end)
-
+end))
 
 -- ====================================================================
--- 🎛️ [UI 메뉴에 연사 조절 토글 & 막대(Slider) 이어붙이기]
+-- 🎛️ [추가 장착: COMBAT 섹션 하단 UI 조절 막대 자동 주입]
 -- ====================================================================
 task.spawn(function()
-    -- 총기 관련 기능이니까 전투(combat)나 무기(weapon) 탭에 장착되도록 설정
-    -- 형이 쓰는 탭 이름에 맞게 ["combat"]이나 ["weapon"] 등으로 바꿔도 돼!
-    repeat task.wait(0.1) until Tabs and Tabs["combat"] and Tabs["combat"].Left
+    -- 형의 오리지널 메인 탭 셋업이 끝날 때까지 잠시 대기
+    repeat task.wait(0.1) until Tabs and Tabs["main"] and Tabs["main"].Left
     
-    local WeaponSection = _G.AddSection(Tabs["combat"].Left, "weapon modification")
+    -- 형이 만들어둔 Combat 섹션 찾기 (없으면 새로 생성됨)
+    local CombatSection = Tabs["main"].Left:FindFirstChild("Combat") 
+        or Tabs["main"].Left:FindFirstChild("combat options")
+        or (Tabs["main"].Left:FindFirstChildOfClass("Frame") and Tabs["main"].Left:FindFirstChildOfClass("Frame"):FindFirstChild("Frame"))
     
-    -- 1. 연사 속도 변조 ON/OFF 스위치
-    _G.AddToggle(WeaponSection, "Rapid Fire (연사 속도 핵)", false, function(state)
-        _G.RapidFireEnabled = state
+    -- 만약 프레임 경로 추적이 안 되면 안전하게 새 섹션을 파서 진입
+    if not CombatSection then
+        CombatSection = _G.AddSection(Tabs["main"].Left, "Rapid Fire Config")
+    end
+
+    -- 1. 연사 스위치 토글
+    _G.AddToggle(CombatSection, "Rapid Fire", false, function(s) 
+        _G.RapidFireEnabled = s 
     end)
     
-    -- 2. 연사 속도 조절 막대 (최소 0.01초 ~ 최대 1초 / 기본값 0.1초)
-    -- 0.01초에 가까워질수록 눈 깜짝할 사이에 탄창 다 비우는 광클 모드가 됨!
-    _G.AddSlider(WeaponSection, "Fire Rate Delay (낮을수록 빠름)", 0.01, 1, 0.1, function(value)
-        _G.FireRateSpeed = value
+    -- 2. 1부터 100까지 게이지 바 (100에 가까울수록 내부 대기시간이 0.01초로 좁혀지며 미치도록 빠르게 발사됨)
+    _G.AddSlider(CombatSection, "Rapid Fire Speed Rate", 1, 100, 10, function(val)
+        local percentage = (val - 1) / 99
+        _G.FireRateSpeed = 0.5 - (percentage * 0.49) -- 숫자가 커질수록 딜레이 초(second)가 줄어드는 역산 보정
     end)
 
-    -- UI 스크롤 사이즈 자동 조절
-    local scroll = Tabs["combat"].Left
+    -- UI 간격 늘어난 만큼 스크롤바 크기 리사이징 자동 갱신
+    task.wait(0.2)
+    local scroll = Tabs["main"].Left
     if scroll and scroll:FindFirstChild("UIListLayout") then
         scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 30)
     end
 end)
+
+print("[SOLAR EXTENSION] 연사 속도(Rapid Fire) 조절 스위치 추가 결합 완료!")
