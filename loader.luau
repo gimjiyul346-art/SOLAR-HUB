@@ -654,3 +654,120 @@ task.spawn(function()
         scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 30)
     end
 end)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local function applyHighlightAndHealth(character, player)
+    -- 내 캐릭터는 제외
+    if player == LocalPlayer then return end
+
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoidRootPart or not humanoid then return end
+
+    -- 중복 생성 방지를 위한 기존 UI 제거
+    if character:FindFirstChild("SOLAR_Highlight") then character.SOLAR_Highlight:Destroy() end
+    if humanoidRootPart:FindFirstChild("SOLAR_HealthUI") then humanoidRootPart.SOLAR_HealthUI:Destroy() end
+
+    -- ==========================================
+    -- 1. Highlight (캐릭터 색칠) 기능
+    -- ==========================================
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "SOLAR_Highlight"
+    highlight.Adornee = character
+    highlight.FillColor = Color3.fromRGB(0, 0, 255)       -- 몸통 파란색
+    highlight.FillTransparency = 0.6                      -- 반투명
+    highlight.OutlineColor = Color3.fromRGB(0, 0, 0)      -- 테두리 검은색
+    highlight.OutlineTransparency = 0                     
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- 벽 뚫고 보이기
+    highlight.Parent = character
+
+    -- ==========================================
+    -- 2. 체력바 (옆에 붙는 게이지 + 숫자) 기능
+    -- ==========================================
+    local healthBillboard = Instance.new("BillboardGui")
+    healthBillboard.Name = "SOLAR_HealthUI"
+    healthBillboard.AlwaysOnTop = true
+    healthBillboard.Size = UDim2.new(0, 80, 0, 60)
+    healthBillboard.StudsOffset = Vector3.new(-1.4, 0, 0) -- 캐릭터 왼쪽으로 위치 조정
+    healthBillboard.Adornee = humanoidRootPart
+
+    -- 체력바 배경 (검은색 테두리 역할)
+    local healthBarBg = Instance.new("Frame")
+    healthBarBg.Size = UDim2.new(0, 5, 0, 50)
+    healthBarBg.Position = UDim2.new(1, -8, 0.5, -25)
+    healthBarBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    healthBarBg.BorderSizePixel = 0
+    healthBarBg.Parent = healthBillboard
+
+    -- 실시간 체력 게이지 (초록색 실선)
+    local healthBar = Instance.new("Frame")
+    healthBar.Size = UDim2.new(1, 0, 1, 0)
+    healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+    healthBar.BorderSizePixel = 0
+    healthBar.AnchorPoint = Vector2.new(0, 1) -- 아래에서 위로 차오르게 설정
+    healthBar.Position = UDim2.new(0, 0, 1, 0)
+    healthBar.Parent = healthBarBg
+
+    -- 체력 숫자 (HP 라벨)
+    local hpLabel = Instance.new("TextLabel")
+    hpLabel.Size = UDim2.new(0, 50, 0, 20)
+    hpLabel.Position = UDim2.new(1, -62, 0.5, -10)
+    hpLabel.BackgroundTransparency = 1
+    hpLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+    hpLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    hpLabel.TextStrokeTransparency = 0
+    hpLabel.TextSize = 12
+    hpLabel.Font = Enum.Font.SourceSansBold
+    hpLabel.TextXAlignment = Enum.TextXAlignment.Right
+    hpLabel.Parent = healthBillboard
+    
+    healthBillboard.Parent = humanoidRootPart
+
+    -- ==========================================
+    -- 3. 실시간 동기화 루프 (체력 변동 감지)
+    -- ==========================================
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        -- 캐릭터가 죽거나 사라지면 UI 지우고 루프 종료
+        if not character:IsDescendantOf(workspace) or humanoid.Health <= 0 then
+            highlight:Destroy()
+            healthBillboard:Destroy()
+            connection:Disconnect()
+            return
+        end
+
+        -- 실시간 체력 계산 및 UI 업데이트
+        local currentHP = math.floor(humanoid.Health)
+        local healthRatio = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+        
+        hpLabel.Text = tostring(currentHP)
+        healthBar.Size = UDim2.new(1, 0, healthRatio, 0)
+        
+        -- 체력 상태에 따라 색상 변경 (피가 반 이하면 빨간색으로)
+        if healthRatio > 0.5 then
+            healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+            hpLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+        else
+            healthBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+            hpLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        end
+    end)
+end
+
+-- 게임 내 모든 플레이어에게 적용하는 함수
+local function setupPlayer(player)
+    if player.Character then 
+        applyHighlightAndHealth(player.Character, player) 
+    end
+    player.CharacterAdded:Connect(function(char)
+        applyHighlightAndHealth(char, player)
+    end)
+end
+
+-- 이미 있는 플레이어들 적용 & 새로 들어오는 플레이어 감지
+for _, player in ipairs(Players:GetPlayers()) do 
+    setupPlayer(player) 
+end
+Players.PlayerAdded:Connect(setupPlayer)
