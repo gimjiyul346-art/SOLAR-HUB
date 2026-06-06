@@ -772,45 +772,52 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(setupPlayer)
 -- ====================================================================
--- 🌌 [PLAYER - ANTI-VOID (VOID SPAM)]
+-- 🌌 [PLAYER - ANTI-VOID (VOID SPAM) - 독립 실행형 모듈]
 -- ====================================================================
 
 _G.AntiVoidEnabled = false
 
--- 메인 런 서비스에 루프 삽입
-table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
-    if _G.AntiVoidEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = LocalPlayer.Character.HumanoidRootPart
-        
-        -- Y좌표가 -100 이하로 떨어지면 (맵 밖으로 나감)
+-- 메인 루프: 캐릭터 위치 감시
+game:GetService("RunService").Heartbeat:Connect(function()
+    if _G.AntiVoidEnabled and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
         if hrp.Position.Y < -100 then
-            -- 안전한 좌표로 순간이동 및 관성 초기화
             hrp.CFrame = CFrame.new(0, 10, 0)
             hrp.Velocity = Vector3.new(0, 0, 0)
-            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
         end
-    end
-end))
-
--- UI 마운트 (Main 탭에 섹션 추가)
-task.spawn(function()
-    -- 메인 탭이 로드될 때까지 대기
-    repeat task.wait(0.5) until Tabs and Tabs["main"]
-    
-    -- "Player" 섹션 생성
-    local PlayerSection = _G.AddSection(Tabs["main"].Left, "player utilities")
-    
-    -- 토글 버튼 추가
-    _G.AddToggle(PlayerSection, "anti-void (void spam)", false, function(state)
-        _G.AntiVoidEnabled = state
-        print("[SOLAR] Anti-Void 상태:", state)
-    end)
-    
-    -- 레이아웃 갱신
-    local scroll = Tabs["main"].Left
-    if scroll and scroll:FindFirstChild("UIListLayout") then
-        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
     end
 end)
 
-print("[SOLAR] Anti-Void 엔진이 성공적으로 통합되었습니다!")
+-- UI 연동: 기존 GUI를 찾아서 섹션 추가
+task.spawn(function()
+    local CoreGui = game:GetService("CoreGui")
+    local mainGui = nil
+    
+    -- GUI가 로드될 때까지 최대 10초간 대기
+    for i = 1, 10 do
+        mainGui = CoreGui:FindFirstChild("SOLAR_PREMIUM_UE")
+        if mainGui then break end
+        task.wait(1)
+    end
+
+    if mainGui then
+        -- GUI 내부의 MainFrame -> ContentFrame -> mainPage -> Left 스크롤을 직접 찾음
+        local contentFrame = mainGui:FindFirstChild("MainFrame", true):FindFirstChild("ContentFrame", true)
+        local mainPage = contentFrame:FindFirstChild("mainPage")
+        local leftScroll = mainPage:FindFirstChild("Left")
+
+        if leftScroll then
+            local P = _G.AddSection(leftScroll, "player utilities")
+            _G.AddToggle(P, "anti-void (void spam)", false, function(state)
+                _G.AntiVoidEnabled = state
+            end)
+            
+            -- 레이아웃 갱신
+            if leftScroll:FindFirstChild("UIListLayout") then
+                leftScroll.CanvasSize = UDim2.new(0, 0, 0, leftScroll.UIListLayout.AbsoluteContentSize.Y + 20)
+            end
+        end
+    end
+end)
+
+print("[SOLAR] Anti-Void 모듈이 독립적으로 마운트되었습니다.")
