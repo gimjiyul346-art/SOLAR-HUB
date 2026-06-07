@@ -850,3 +850,49 @@ task.spawn(function()
 end)
 
 _G.teleportToVoid = teleportToVoid
+_G.RageBotEnabled = false
+
+local function getScreenCenter()
+    local viewport = camera.ViewportSize
+    return Vector2.new(viewport.X / 2, viewport.Y / 2)
+end
+
+local function getScreenDistance(pos)
+    local screenPos, onScreen = camera:WorldToViewportPoint(pos)
+    if not onScreen then return math.huge end
+    local center = getScreenCenter()
+    return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+end
+
+local function getClosestTarget()
+    local closest = nil
+    local closestDist = 120
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") then
+            local head = plr.Character.Head
+            local dist = getScreenDistance(head.Position)
+            if dist < closestDist then
+                closestDist = dist
+                closest = head
+            end
+        end
+    end
+    return closest
+end
+
+RunService.RenderStepped:Connect(function()
+    if not _G.RageBotEnabled then return end
+    local target = getClosestTarget()
+    if not target then return end
+    local camPos = camera.CFrame.Position
+    local lookAt = CFrame.new(camPos, target.Position)
+    camera.CFrame = camera.CFrame:Lerp(lookAt, 0.00001)
+end)
+
+task.spawn(function()
+    repeat task.wait(0.5) until Tabs and Tabs["main"]
+    local M = _G.AddSection(Tabs["main"].Left, "Rage Bot")
+    _G.AddToggle(M, "Enable Rage Bot", false, function(s)
+        _G.RageBotEnabled = s
+    end)
+end)
