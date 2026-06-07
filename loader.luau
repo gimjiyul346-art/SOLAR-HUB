@@ -504,13 +504,22 @@ end
 -- 3. [기능 및 UI 통합 (나머지 기능들)]
 _G.SilentEnabled = false; _G.Wallbang = false; _G.AutoShoot = false; _G.AutoFarm = false;
 
--- Wallbang 로직: 레이캐스트의 4번째 인자(필터)를 없애 벽 통과
 local oldRaycast = utility.Raycast
 utility.Raycast = function(...)
     local args = {...}
-    if _G.Wallbang and #args > 0 and args[4] == 999 then args[4] = nil end
+    if _G.Wallbang and #args > 0 and args[4] == 999 then
+        local rayParams = RaycastParams.new()
+        rayParams.FilterType = Enum.RaycastFilterType.Include
+        local targets = {}
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then table.insert(targets, p.Character) end
+        end
+        rayParams.FilterDescendantsInstances = targets
+        args[4] = rayParams
+    end
     return oldRaycast(unpack(args))
 end
+
 
 game:GetService("RunService").RenderStepped:Connect(function()
     if _G.AutoShoot then
@@ -809,3 +818,35 @@ task.spawn(function()
         end
     end)
 end)
+_G.VoidSettings = {
+    Enabled = false,
+    Distance = 1000000,
+    Mode = "None"
+}
+
+local function teleportToVoid()
+    if not _G.VoidSettings.Enabled then return end
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.CFrame = CFrame.new(0, -_G.VoidSettings.Distance, 0)
+    end
+end
+
+task.spawn(function()
+    repeat task.wait(0.5) until Tabs and Tabs["misc"]
+    local M = _G.AddSection(Tabs["misc"].Left, "Void Hide")
+    
+    _G.AddToggle(M, "Enable Void Hide", false, function(s)
+        _G.VoidSettings.Enabled = s
+        if s then
+            task.spawn(function()
+                while _G.VoidSettings.Enabled do
+                    teleportToVoid()
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end)
+end)
+
+_G.teleportToVoid = teleportToVoid
