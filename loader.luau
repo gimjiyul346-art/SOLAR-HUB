@@ -790,10 +790,10 @@ task.spawn(function()
         CombatSection = _G.AddSection(Tabs["main"].Left, "Combat")
     end
 
-    
+    -- 토글 생성
     _G.AddToggle(CombatSection, "Rapid Fire", false, function(state)
         if state then
-            
+            -- 형이 준 코드 그대로 실행
             local Storage = game:GetService("ReplicatedStorage")
             local Items = require(Storage.Modules.ItemLibrary).Items
 
@@ -807,10 +807,10 @@ task.spawn(function()
     end)
 end)
 task.spawn(function()
-    
+    -- UI 로드 대기
     repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["main"].Left
 
-    
+    -- Combat 섹션 찾기 또는 생성
     local CombatSection = nil
     for _, child in pairs(Tabs["main"].Left:GetChildren()) do
         if child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") then
@@ -825,10 +825,9 @@ task.spawn(function()
         CombatSection = _G.AddSection(Tabs["main"].Left, "Combat")
     end
 
-    
-    _G.AddToggle(CombatSection, "rage bot", false, function(state)
-        if state then
-local __a1b2c3 = setmetatable({}, {
+    -- 토글 생성
+    _G.AddToggle(CombatSection, "Rapid Fire", false, function(state)
+        if state then local __a1b2c3 = setmetatable({}, {
     __index = function(__d4e5f6, __g7h8i9)
         local __j0k1l2, __m3n4o5 = pcall(function()
             return game:GetService(__g7h8i9)
