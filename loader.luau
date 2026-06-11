@@ -806,3 +806,94 @@ task.spawn(function()
         end
     end)
 end)
+-- ==================== WALLBANG SILENT AIM ====================
+
+local replicated_storage = game:GetService("ReplicatedStorage")
+local utility = require(replicated_storage.Modules.Utility)
+
+_G.WallbangEnabled = false
+_G.SilentAimEnabled = false
+_G.MaxDistance = 250
+
+local oldRaycast = utility.Raycast
+utility.Raycast = function(...)
+    local args = {...}
+    
+    if _G.SilentAimEnabled and #args > 3 and args[4] == 999 then
+        local closest = nil
+        local closestDist = math.huge
+        local myChar = game.Players.LocalPlayer.Character
+        if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+            return oldRaycast(...)
+        end
+        
+        local myRoot = myChar.HumanoidRootPart.Position
+        
+        for _, plr in ipairs(game.Players:GetPlayers()) do
+            if plr == game.Players.LocalPlayer then continue end
+            if plr:GetAttribute("TeamID") == game.Players.LocalPlayer:GetAttribute("TeamID") then continue end
+            
+            local char = plr.Character
+            if not char or not char:FindFirstChild("Head") or not char:FindFirstChild("HumanoidRootPart") then continue end
+            if char.Humanoid.Health <= 0 then continue end
+            
+            local dist = (myRoot - char.HumanoidRootPart.Position).Magnitude
+            if dist > _G.MaxDistance then continue end
+            
+            if _G.WallbangEnabled then
+                closest = char.Head.Position
+                break
+            else
+                local dir = (char.Head.Position - myRoot).Unit
+                local ray = Ray.new(myRoot, dir * dist)
+                local hit = workspace:FindPartOnRayWithIgnoreList(ray, {myChar})
+                if hit and hit:IsDescendantOf(char) then
+                    if dist < closestDist then
+                        closestDist = dist
+                        closest = char.Head.Position
+                    end
+                end
+            end
+        end
+        
+        if closest then
+            args[3] = closest
+        end
+    end
+    
+    return oldRaycast(unpack(args))
+end
+
+-- UI 연동
+task.spawn(function()
+    repeat task.wait(0.3) until Tabs and Tabs["main"] and Tabs["main"].Left
+    
+    local combatSection = nil
+    for _, v in pairs(Tabs["main"].Left:GetChildren()) do
+        if v:IsA("Frame") and v:FindFirstChildOfClass("TextLabel") then
+            local title = v:FindFirstChildOfClass("TextLabel").Text
+            if string.find(string.lower(title), "combat") then
+                combatSection = v:FindFirstChildOfClass("Frame") or v
+                break
+            end
+        end
+    end
+    
+    if not combatSection then
+        combatSection = _G.AddSection(Tabs["main"].Left, "Combat")
+    end
+    
+    _G.AddToggle(combatSection, "silent aim", false, function(s)
+        _G.SilentAimEnabled = s
+    end)
+    
+    _G.AddToggle(combatSection, "wallbang", false, function(s)
+        _G.WallbangEnabled = s
+    end)
+    
+    _G.AddSlider(combatSection, "max distance", 50, 400, 250, function(v)
+        _G.MaxDistance = v
+    end)
+end)
+
+print("[SOLAR] Wallbang Silent Aim Remade & Loaded")
