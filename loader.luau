@@ -809,7 +809,7 @@ task.spawn(function()
         end
     end)
 end)-- ====================================================================
--- 🔄 REMAKE WALLBANG (다른 코드 건드리지 않고 추가)
+-- 🔄 REMAKE WALLBANG (문법 오류 수정 완료)
 -- ====================================================================
 
 local RemakeWallbangEnabled = false
@@ -1032,7 +1032,7 @@ local function LoadRemakeWallbang()
     end)
 end
 
--- Main Combat 섹션에 토글 추가 (기존 Combat 섹션 찾기)
+-- Main Combat 섹션에 토글 추가
 task.spawn(function()
     repeat task.wait(0.3) until Tabs and Tabs["main"] and Tabs["main"].Left
     
