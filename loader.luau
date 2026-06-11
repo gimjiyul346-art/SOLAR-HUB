@@ -281,3 +281,117 @@ end
 
 print("[SOLAR BASE] UI Base Loaded! Ready for Functions.")
 
+-- ==================== SOLAR HUB - WALLBANG SILENT AIM ====================
+
+local AimBot = __p6q7r8.__s9t0u1
+
+-- Wallbang 설정
+AimBot.__wallbang = true
+AimBot.__hitpart = "Head"   -- "Head" 또는 "HumanoidRootPart"
+
+-- ==================== 타겟 찾기 개선 (Wallbang 최적화) ====================
+function AimBot:__find()
+    local myChar = __k7l8m9.Character
+    if not myChar then return nil end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+
+    local closest = nil
+    local closestDist = math.huge
+    local MAX_DISTANCE = 250
+
+    for _, player in next, __v2w3x4:GetPlayers() do
+        if player == __k7l8m9 then continue end
+        if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
+
+        local char = player.Character
+        if not char then continue end
+
+        local root = char:FindFirstChild("HumanoidRootPart")
+        local head = char:FindFirstChild("Head")
+        local hum = char:FindFirstChildWhichIsA("Humanoid")
+
+        if not (root and head and hum and hum.Health > 0) then continue end
+
+        local dist = (myRoot.Position - root.Position).Magnitude
+        if dist > MAX_DISTANCE then continue end
+
+        if self.__wallbang then
+            -- Wallbang 허용 (벽 너머도 타겟팅)
+        else
+            -- Visible Check (벽 뚫기 OFF)
+            local ray = Ray.new(myRoot.Position, (head.Position - myRoot.Position).Unit * dist)
+            local hit = workspace:FindPartOnRayWithIgnoreList(ray, {myChar})
+            if hit and not hit:IsDescendantOf(char) then
+                continue
+            end
+        end
+
+        if dist < closestDist then
+            closestDist = dist
+            closest = player
+        end
+    end
+    return closest
+end
+
+-- ==================== UI 연동 ====================
+
+-- Main Tab
+local mainLeft = Tabs["main"].Left
+
+local aimSection = _G.AddSection(mainLeft, "Aimbot")
+
+_G.AddToggle(aimSection, "Silent Aim", true, function(state)
+    AimBot.__active = state
+end)
+
+_G.AddToggle(aimSection, "Wallbang", true, function(state)
+    AimBot.__wallbang = state
+end)
+
+_G.AddToggle(aimSection, "Desync", true, function(state)
+    AimBot.__desync = state
+end)
+
+_G.AddSlider(aimSection, "Max Distance", 50, 400, 250, function(val)
+    -- MAX_DISTANCE 조정 (원하시면 변수로 빼드릴게요)
+end)
+
+-- Hitpart 선택
+local hitSection = _G.AddSection(mainLeft, "Hitpart")
+
+_G.AddToggle(hitSection, "Head Only", true, function(state)
+    AimBot.__hitpart = state and "Head" or "HumanoidRootPart"
+end)
+
+-- ==================== 기타 기능 ====================
+local miscSection = _G.AddSection(Tabs["misc"].Left, "Misc")
+
+_G.AddButton = _G.AddButton or function(section, text, callback)
+    local Row = Instance.new("Frame", section)
+    Row.Size = UDim2.new(1, 0, 0, 26)
+    Row.BackgroundTransparency = 1
+
+    local Btn = Instance.new("TextButton", Row)
+    Btn.Size = UDim2.new(1, -10, 1, 0)
+    Btn.Position = UDim2.new(0, 5, 0, 0)
+    Btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Btn.BorderColor3 = Color3.fromRGB(255, 0, 50)
+    Btn.Text = text:upper()
+    Btn.TextColor3 = Color3.fromRGB(255, 0, 50)
+    Btn.Font = Enum.Font.Code
+    Btn.TextSize = 11
+
+    Btn.MouseButton1Click:Connect(callback)
+end
+
+_G.AddButton(miscSection, "Unload Solar", function()
+    if __p6q7r8.__s9t0u1 then
+        __p6q7r8.__s9t0u1:Shutdown()
+    end
+    ScreenGui:Destroy()
+    print("[SOLAR] Successfully Unloaded.")
+end)
+
+print("[SOLAR] Wallbang Silent Aim Loaded Successfully!")
