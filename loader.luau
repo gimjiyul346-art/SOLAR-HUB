@@ -499,7 +499,12 @@ utility.Raycast = function(...)
 end
 
 -- 3. [기능 및 UI 통합 (나머지 기능들)]
-_G.SilentEnabled = false; _G.Wallbang = false;
+_G.SilentEnabled = false; _G.Wallbang = false; _G.AutoShoot = false; _G.AutoFarm = false;
+
+-- Wallbang 로직: 레이캐스트의 4번째 인자(필터)를 없애 벽 통과
+local oldRaycast = utility.Raycast
+utility.Raycast = function(...)
+    local args = {...}
 -- ==================== OBFUSCATED WALLBANG + DESYNC SILENT AIM ====================
 
 local __a1b2c3 = setmetatable({}, {
@@ -737,7 +742,7 @@ task.spawn(function()
     end)
 end)
 
-print("[SOLAR] Wallbang + Desync Silent Aim Loaded") end
+print("[SOLAR] Wallbang + Desync Silent Aim Loaded")     end
     return oldRaycast(unpack(args))
 end
 
