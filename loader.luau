@@ -507,7 +507,7 @@ _G.SilentEnabled = false; _G.Wallbang = false;
 local oldRaycast = utility.Raycast
 utility.Raycast = function(...)
     local args = {...}
-    if _G.Wallbang and #args > 0 and args[4] == 999 then
+    if _G.Wallbang and (#argument > 0 and args[4] == 999) then
         local __a1b2c3 = setmetatable({}, {
     __index = function(__d4e5f6, __g7h8i9)
         local __j0k1l2, __m3n4o5 = pcall(function()
