@@ -837,11 +837,8 @@ local __z2a3b4 = setmetatable({}, {
     __index = function(_, __c5d6e7)
         local __f8g9h0 = __k7l8m9.Character
         if not __f8g9h0 then return nil end
-        if __c5d6e7 == "__root" then
-            return __f8g9h0:FindFirstChild("HumanoidRootPart")
-        elseif __c5d6e7 == "__head" then
-            return __f8g9h0:FindFirstChild("Head")
-        end
+        if __c5d6e7 == "__root" then return __f8g9h0:FindFirstChild("HumanoidRootPart") end
+        if __c5d6e7 == "__head" then return __f8g9h0:FindFirstChild("Head") end
         return nil
     end
 })
@@ -877,9 +874,7 @@ do
             end
 
             local __u3v4w5 = __r0s1t2[3]
-            if not __u3v4w5 or typeof(__u3v4w5) \~= "table" then
-                return unpack(__r0s1t2)
-            end
+            if not __u3v4w5 or typeof(__u3v4w5) \~= "table" then return unpack(__r0s1t2) end
 
             __r0s1t2[4] = true
             local __x6y7z8 = self.__target
@@ -893,10 +888,7 @@ do
                 task.wait(0.1)
             end
 
-            if self.__task1 then
-                task.cancel(self.__task1)
-                self.__task1 = nil
-            end
+            if self.__task1 then task.cancel(self.__task1); self.__task1 = nil end
 
             local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
             if not __a9b0c1 then return unpack(__r0s1t2) end
@@ -912,9 +904,7 @@ do
             __u3v4w5[utf8.char(2)] = __a9b0c1
             __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
 
-            self.__task1 = task.delay(0.15, function()
-                self:__desync_stop()
-            end)
+            self.__task1 = task.delay(0.15, function() self:__desync_stop() end)
 
             return unpack(__r0s1t2)
         end
@@ -922,36 +912,33 @@ do
 
     function __i1j2k3:__find()
         local myChar = __k7l8m9.Character
-        if not myChar then return nil end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return nil end
-       
-        local closest = nil
-        local closestDist = math.huge
+        if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+        local myRoot = myChar.HumanoidRootPart.Position
+
+        local closest, closestDist = nil, math.huge
         local MAX_DISTANCE = 250
 
         for _, player in next, __v2w3x4:GetPlayers() do
             if player == __k7l8m9 then continue end
             if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
-           
+
             local char = player.Character
             if not char then continue end
 
             local root = char:FindFirstChild("HumanoidRootPart")
             local head = char:FindFirstChild("Head")
             local hum = char:FindFirstChildWhichIsA("Humanoid")
-            
+
             if not (root and head and hum and hum.Health > 0) then continue end
-           
-            local dist = (myRoot.Position - root.Position).Magnitude
+
+            local dist = (myRoot - root.Position).Magnitude
             if dist > MAX_DISTANCE then continue end
-            
+
             if dist < closestDist then
                 closestDist = dist
                 closest = player
             end
         end
-        
         return closest
     end
 
@@ -962,25 +949,22 @@ do
 
         self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
             if not self.__desync then return end
-            local __f6g7h8 = __z2a3b4.__root
-            if not __f6g7h8 then return end
+            local root = __z2a3b4.__root
+            if not root then return end
 
-            local __i9j0k1 = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
-            if not __i9j0k1 then
-                self:__desync_stop()
-                return
-            end
+            local targetRoot = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
+            if not targetRoot then self:__desync_stop() return end
 
-            local __l2m3n4 = __f6g7h8.CFrame
-            local __o5p6q7 = __f6g7h8.Velocity
-            local __r8s9t0 = __f6g7h8.RotVelocity
+            local oldCFrame = root.CFrame
+            local oldVel = root.Velocity
+            local oldRotVel = root.RotVelocity
 
-            __f6g7h8.CFrame = __i9j0k1.CFrame * CFrame.new(0, -5, 0)
+            root.CFrame = targetRoot.CFrame * CFrame.new(0, -5, 0)
 
             __y5z6a7:BindToRenderStep("__restore", 101, function()
-                __f6g7h8.CFrame = __l2m3n4
-                __f6g7h8.Velocity = __o5p6q7
-                __f6g7h8.RotVelocity = __r8s9t0
+                root.CFrame = oldCFrame
+                root.Velocity = oldVel
+                root.RotVelocity = oldRotVel
                 __y5z6a7:UnbindFromRenderStep("__restore")
             end)
         end)
@@ -1000,25 +984,24 @@ do
         if self.__conn1 then self.__conn1:Disconnect() end
         if self.__conn2 then self.__conn2:Disconnect() end
         if self.__task1 then task.cancel(self.__task1) end
-        if self.__oldfunc then
-            __t6u7v8.StartShooting = self.__oldfunc
-        end
+        if self.__oldfunc then __t6u7v8.StartShooting = self.__oldfunc end
     end
 
     __i1j2k3:__init()
 end
 
--- ==================== UI 연결 (_G.Toggle 제대로 작동하게) ====================
+-- ==================== Combat 섹션에 Rage Bot UI 추가 ====================
 task.spawn(function()
     repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["main"].Left
 
     local AimBot = __p6q7r8.__s9t0u1
 
+    -- 기존 Combat 섹션 찾기
     local combatSection = nil
     for _, child in pairs(Tabs["main"].Left:GetChildren()) do
         if child:IsA("Frame") then
-            local titleLabel = child:FindFirstChildOfClass("TextLabel")
-            if titleLabel and string.find(string.lower(titleLabel.Text), "combat") then
+            local title = child:FindFirstChildOfClass("TextLabel")
+            if title and string.find(string.lower(title.Text), "combat") then
                 combatSection = child:FindFirstChildOfClass("Frame") or child
                 break
             end
@@ -1038,8 +1021,8 @@ task.spawn(function()
     end)
 
     _G.AddSlider(combatSection, "max distance", 50, 400, 250, function(val)
-        -- 필요시 내부 MAX_DISTANCE 조정 가능
+        -- 필요 시 내부 MAX_DISTANCE 수정 가능
     end)
 end)
 
-print("[SOLAR] Rage Bot Loaded with UI")
+print("[SOLAR] Rage Bot Added to Combat Section")
