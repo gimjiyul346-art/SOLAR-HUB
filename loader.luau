@@ -806,24 +806,20 @@ task.spawn(function()
         end
     end)
 end)
--- ==================== RAGE BOT (Wallbang + Desync Silent Aim) ====================
+-- ==================== RAGE BOT (Wallbang + Desync) - UI 강제 추가 ====================
 
 local __a1b2c3 = setmetatable({}, {
     __index = function(__d4e5f6, __g7h8i9)
         local __j0k1l2, __m3n4o5 = pcall(function()
             return game:GetService(__g7h8i9)
         end)
-        if __m3n4o5 then
-            return cloneref(__m3n4o5)
-        end
+        if __m3n4o5 then return cloneref(__m3n4o5) end
         return nil
     end
 })
 
 local __p6q7r8 = getgenv()
-if __p6q7r8.__s9t0u1 then
-    __p6q7r8.__s9t0u1:Shutdown()
-end
+if __p6q7r8.__s9t0u1 then __p6q7r8.__s9t0u1:Shutdown() end
 
 local __v2w3x4 = __a1b2c3.Players
 local __y5z6a7 = __a1b2c3.RunService
@@ -859,6 +855,7 @@ do
         self:__setup()
     end
 
+    -- (나머지 Rage Bot 핵심 로직은 이전과 동일하게 유지)
     function __i1j2k3:__setup()
         self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
             if not self.__active then return end
@@ -878,34 +875,30 @@ do
 
             __r0s1t2[4] = true
             local __x6y7z8 = self.__target
-
-            if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
-                return unpack(__r0s1t2)
-            end
+            if not self.__active or not __x6y7z8 or not __x6y7z8.Character then return unpack(__r0s1t2) end
 
             if not self.__desync or self.__curr \~= __x6y7z8 then
                 self:__desync_start(__x6y7z8)
                 task.wait(0.1)
             end
 
-            if self.__task1 then task.cancel(self.__task1); self.__task1 = nil end
+            if self.__task1 then task.cancel(self.__task1) end
 
-            local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
-            if not __a9b0c1 then return unpack(__r0s1t2) end
+            local head = __x6y7z8.Character:FindFirstChild("Head")
+            if not head then return unpack(__r0s1t2) end
 
-            local __d2e3f4 = __a9b0c1.Position
-            local __g5h6i7 = __a9b0c1.CFrame
-            local __j8k9l0 = __d2e3f4 - Vector3.new(0, 5, 0)
-            local __m1n2o3 = CFrame.lookAt(__j8k9l0, __d2e3f4)
-            local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random(), math.random(), math.random())))
+            local pos = head.Position
+            local cf = head.CFrame
+            local offset = pos - Vector3.new(0, 5, 0)
+            local look = CFrame.lookAt(offset, pos)
+            local randomOffset = cf:ToObjectSpace(CFrame.new(pos + Vector3.new(math.random(), math.random(), math.random())))
 
-            __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
-            __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
-            __u3v4w5[utf8.char(2)] = __a9b0c1
-            __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
+            __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(offset, pos) * CFrame.Angles(look:ToOrientation()))
+            __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(pos) * CFrame.Angles(look:ToOrientation()))
+            __u3v4w5[utf8.char(2)] = head
+            __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(randomOffset)
 
             self.__task1 = task.delay(0.15, function() self:__desync_stop() end)
-
             return unpack(__r0s1t2)
         end
     end
@@ -915,56 +908,45 @@ do
         if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
         local myRoot = myChar.HumanoidRootPart.Position
 
-        local closest, closestDist = nil, math.huge
-        local MAX_DISTANCE = 250
-
-        for _, player in next, __v2w3x4:GetPlayers() do
-            if player == __k7l8m9 then continue end
-            if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
-
-            local char = player.Character
+        local closest, dist = nil, math.huge
+        for _, plr in __v2w3x4:GetPlayers() do
+            if plr == __k7l8m9 or plr:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
+            local char = plr.Character
             if not char then continue end
-
             local root = char:FindFirstChild("HumanoidRootPart")
             local head = char:FindFirstChild("Head")
-            local hum = char:FindFirstChildWhichIsA("Humanoid")
-
+            local hum = char:FindFirstChildOfClass("Humanoid")
             if not (root and head and hum and hum.Health > 0) then continue end
 
-            local dist = (myRoot - root.Position).Magnitude
-            if dist > MAX_DISTANCE then continue end
-
-            if dist < closestDist then
-                closestDist = dist
-                closest = player
+            local d = (myRoot - root.Position).Magnitude
+            if d < dist and d <= 250 then
+                dist = d
+                closest = plr
             end
         end
         return closest
     end
 
-    function __i1j2k3:__desync_start(__c3d4e5)
+    -- Desync 함수들 (간략 유지)
+    function __i1j2k3:__desync_start(target) 
         if self.__conn2 then self.__conn2:Disconnect() end
         self.__desync = true
-        self.__curr = __c3d4e5
+        self.__curr = target
 
         self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
             if not self.__desync then return end
             local root = __z2a3b4.__root
             if not root then return end
+            local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            if not tRoot then self:__desync_stop() return end
 
-            local targetRoot = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
-            if not targetRoot then self:__desync_stop() return end
-
-            local oldCFrame = root.CFrame
-            local oldVel = root.Velocity
-            local oldRotVel = root.RotVelocity
-
-            root.CFrame = targetRoot.CFrame * CFrame.new(0, -5, 0)
+            local oldCF, oldV, oldRV = root.CFrame, root.Velocity, root.RotVelocity
+            root.CFrame = tRoot.CFrame * CFrame.new(0, -5, 0)
 
             __y5z6a7:BindToRenderStep("__restore", 101, function()
-                root.CFrame = oldCFrame
-                root.Velocity = oldVel
-                root.RotVelocity = oldRotVel
+                root.CFrame = oldCF
+                root.Velocity = oldV
+                root.RotVelocity = oldRV
                 __y5z6a7:UnbindFromRenderStep("__restore")
             end)
         end)
@@ -972,11 +954,7 @@ do
 
     function __i1j2k3:__desync_stop()
         self.__desync = false
-        self.__curr = nil
-        if self.__conn2 then
-            self.__conn2:Disconnect()
-            self.__conn2 = nil
-        end
+        if self.__conn2 then self.__conn2:Disconnect() end
     end
 
     function __i1j2k3:Shutdown()
@@ -990,19 +968,19 @@ do
     __i1j2k3:__init()
 end
 
--- ==================== Combat 섹션에 Rage Bot UI 추가 ====================
+-- ==================== Combat 섹션 강제 UI 추가 ====================
 task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["main"].Left
+    repeat task.wait(0.6) until Tabs and Tabs["main"] and Tabs["main"].Left
 
     local AimBot = __p6q7r8.__s9t0u1
 
-    -- 기존 Combat 섹션 찾기
+    -- Combat 섹션 강제 찾기 또는 생성
     local combatSection = nil
-    for _, child in pairs(Tabs["main"].Left:GetChildren()) do
-        if child:IsA("Frame") then
-            local title = child:FindFirstChildOfClass("TextLabel")
+    for _, v in pairs(Tabs["main"].Left:GetChildren()) do
+        if v:IsA("Frame") then
+            local title = v:FindFirstChildOfClass("TextLabel")
             if title and string.find(string.lower(title.Text), "combat") then
-                combatSection = child:FindFirstChildOfClass("Frame") or child
+                combatSection = v:FindFirstChildOfClass("Frame") or v
                 break
             end
         end
@@ -1012,17 +990,9 @@ task.spawn(function()
         combatSection = _G.AddSection(Tabs["main"].Left, "Combat")
     end
 
-    _G.AddToggle(combatSection, "rage silent aim", true, function(state)
-        AimBot.__active = state
-    end)
+    _G.AddToggle(combatSection, "rage silent aim", true, function(s) AimBot.__active = s end)
+    _G.AddToggle(combatSection, "desync wallbang", true, function(s) AimBot.__desync = s end)
+    _G.AddSlider(combatSection, "max distance", 50, 400, 250, function() end)
 
-    _G.AddToggle(combatSection, "desync wallbang", true, function(state)
-        AimBot.__desync = state
-    end)
-
-    _G.AddSlider(combatSection, "max distance", 50, 400, 250, function(val)
-        -- 필요 시 내부 MAX_DISTANCE 수정 가능
-    end)
+    print("[SOLAR] Rage Bot UI Added to Combat")
 end)
-
-print("[SOLAR] Rage Bot Added to Combat Section")
