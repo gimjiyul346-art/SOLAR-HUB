@@ -288,7 +288,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = game.Players.LocalPlayer
 
--- Fly 연결
 if _G.FlyHeartbeat then _G.FlyHeartbeat:Disconnect() end
 if _G.FlyNoclip then _G.FlyNoclip:Disconnect() end
 
@@ -296,10 +295,9 @@ _G.FlyHeartbeat = RunService.Heartbeat:Connect(function()
     if not _G.FlyEnabled then return end
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    
     local HRP = char.HumanoidRootPart
     HRP.Velocity = Vector3.new(0,0,0)
-    
+
     local move = Vector3.new(0,0,0)
     if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
     if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
@@ -307,7 +305,7 @@ _G.FlyHeartbeat = RunService.Heartbeat:Connect(function()
     if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
     if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
     if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move -= Vector3.new(0,1,0) end
-    
+
     if move.Magnitude > 0 then
         HRP.CFrame = HRP.CFrame + (move.Unit * (_G.FlySpeed / 50))
     end
@@ -316,24 +314,31 @@ end)
 _G.FlyNoclip = RunService.Stepped:Connect(function()
     if _G.FlyEnabled and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
+            if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
 end)
 
--- Character 탭에 Fly 추가 (안전하게)
+-- Character 탭에 Fly 강제 추가
 task.spawn(function()
-    repeat task.wait(0.3) until Tabs and Tabs["character"]
-    
+    repeat task.wait(0.5) until Tabs and Tabs["character"] and Tabs["character"].Left
+
+    -- 기존 내용 모두 정리
+    for _, child in pairs(Tabs["character"].Left:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
+    end
+
     local section = _G.AddSection(Tabs["character"].Left, "character configuration")
-    
+
     _G.AddToggle(section, "fly", false, function(state)
         _G.FlyEnabled = state
     end)
-    
+
     _G.AddSlider(section, "fly speed", 20, 300, 60, function(val)
         _G.FlySpeed = val
     end)
+
+    print("[SOLAR] Fly Added to Character Tab")
 end)
