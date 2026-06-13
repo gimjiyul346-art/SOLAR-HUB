@@ -319,15 +319,13 @@ _G.FlyNoclip = RunService.Stepped:Connect(function()
     end
 end)
 
--- Character 탭에 Fly 강제 추가
+-- Character 탭 정리 후 Fly 추가
 task.spawn(function()
     repeat task.wait(0.5) until Tabs and Tabs["character"] and Tabs["character"].Left
 
-    -- 기존 내용 모두 정리
+    -- Character Left의 기존 내용 모두 삭제
     for _, child in pairs(Tabs["character"].Left:GetChildren()) do
-        if child:IsA("Frame") then
-            child:Destroy()
-        end
+        if child:IsA("Frame") then child:Destroy() end
     end
 
     local section = _G.AddSection(Tabs["character"].Left, "character configuration")
@@ -340,5 +338,5 @@ task.spawn(function()
         _G.FlySpeed = val
     end)
 
-    print("[SOLAR] Fly Added to Character Tab")
+    print("[SOLAR] Fly UI Fixed")
 end)
