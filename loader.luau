@@ -280,118 +280,52 @@ for _, name in pairs(TabNames) do
 end
 
 print("[SOLAR BASE] UI Base Loaded! Ready for Functions.")
-
-
 _G.FlyEnabled = false
-local FlySpeed = 50
+_G.FlySpeed = 60
 
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = game.Players.LocalPlayer
 
-local FlyGyro, FlyPosition
+if _G.FlyHeartbeat then _G.FlyHeartbeat:Disconnect() end
+if _G.FlyNoclipConn then _G.FlyNoclipConn:Disconnect() end
 
-table.insert(_G.SolarConnections, RunService.Heartbeat:Connect(function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local HRP = LocalPlayer.Character.HumanoidRootPart
-        local Hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        
-        if _G.FlyEnabled and Hum and Hum.Health > 0 then
-            local MoveDirection = Vector3.new(0, 0, 0)
-            
-            
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then MoveDirection = MoveDirection + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then MoveDirection = MoveDirection - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then MoveDirection = MoveDirection - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then MoveDirection = MoveDirection + Camera.CFrame.RightVector end
-            
-            
-            
-            if Hum.MoveDirection.Magnitude > 0 then
-                local CameraLook = Camera.CFrame.LookVector
-                local CameraRight = Camera.CFrame.RightVector
-                
-                local ForwardMove = CameraLook * (Hum.MoveDirection:Dot(Camera.CFrame.LookVector) / CameraLook.Magnitude)
-                local SideMove = CameraRight * (Hum.MoveDirection:Dot(Camera.CFrame.RightVector) / CameraRight.Magnitude)
-                
-                if (ForwardMove + SideMove).Magnitude > 0 then
-                    MoveDirection = MoveDirection + (ForwardMove + SideMove).Unit
-                end
-            end
-            
-            
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) or Hum.Jump then 
-                MoveDirection = MoveDirection + Vector3.new(0, 1, 0) 
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then 
-                MoveDirection = MoveDirection - Vector3.new(0, 1, 0) 
-            end
-            
-            
-            HRP.Velocity = Vector3.new(0, 0, 0) 
-            
-            if MoveDirection.Magnitude > 0 then
-              
-                HRP.CFrame = HRP.CFrame + (MoveDirection.Unit * (FlySpeed / 60))
-            else
-                HRP.CFrame = CFrame.new(HRP.Position, HRP.Position + Camera.CFrame.LookVector * Vector3.new(1, 0, 1))
-            end
-        end
+_G.FlyHeartbeat = RunService.Heartbeat:Connect(function()
+    if not _G.FlyEnabled then return end
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local HRP = char.HumanoidRootPart
+    HRP.Velocity = Vector3.new(0,0,0)
+
+    local move = Vector3.new(0,0,0)
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move -= Vector3.new(0,1,0) end
+
+    if move.Magnitude > 0 then
+        HRP.CFrame = HRP.CFrame + (move.Unit * (_G.FlySpeed / 50))
     end
-end))
+end)
 
-table.insert(_G.SolarConnections, RunService.Stepped:Connect(function()
+_G.FlyNoclipConn = RunService.Stepped:Connect(function()
     if _G.FlyEnabled and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
-end))
+end)
 
-
-if Tabs["character"] and Tabs["character"].Left then
+task.spawn(function()
+    repeat task.wait(0.4) until Tabs and Tabs["character"] and Tabs["character"].Left
     for _, child in pairs(Tabs["character"].Left:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
-end
 
-
-local CharacterSection = _G.AddSection(Tabs["character"].Left, "character configuration")
-_G.AddToggle(CharacterSection, "fly", false, function(state) 
-    _G.FlyEnabled = state 
+    local section = _G.AddSection(Tabs["character"].Left, "character configuration")
+    _G.AddToggle(section, "fly", false, function(s) _G.FlyEnabled = s end)
+    _G.AddSlider(section, "fly speed", 20, 300, 60, function(v) _G.FlySpeed = v end)
 end)
-_G.AddSlider(CharacterSection, "fly velocity speed", 20, 200, 50, function(val) 
-    FlySpeed = val 
-end)
-
-
-task.defer(function()
-    local scroll = Tabs["character"].Left
-    if scroll and scroll:FindFirstChild("UIListLayout") then
-        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 20)
-    end
-end)
-
-print("[SOLAR] 
-
-local SkinChangerExecuted = false
-
-local function ExecuteSkinChanger()
-    if SkinChangerExecuted then 
-        print("[SOLAR] Skin Changer.")
-        return 
-    end
-    
-    SkinChangerExecuted = true
-    print("[SOLAR] Skin Changer ...")
-
-    task.spawn(function()
-        local success, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/QP-Offcial/Roblox/refs/heads/main/UnlockAll.lua"))()
-        end)
-        
-        if success then
-            print("[SOLAR] Skin Changer !")
-        else
-            warn("[SOLAR] Skin Changer  :", err)
-            SkinChangerExecuted = false 
-        end
-    end)
-end
