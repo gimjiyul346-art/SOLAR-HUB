@@ -281,7 +281,7 @@ end
 
 print("[SOLAR BASE] UI Base Loaded! Ready for Functions.")
 _G.FlyEnabled = false
-_G.FlySpeed = 120   -- 속도 대폭 증가
+_G.FlySpeed = 100
 
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
@@ -298,46 +298,31 @@ _G.FlyHeartbeat = RunService.Heartbeat:Connect(function()
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     
     local HRP = char.HumanoidRootPart
-    HRP.Velocity = Vector3.new(0, 0, 0)
+    HRP.Velocity = Vector3.new(0,0,0)
     
-    local move = Vector3.new(0, 0, 0)
+    local move = Vector3.new(0,0,0)
     
-    -- 카메라 방향 기준 이동 (하늘 보기 + 앞으로 = 위로 올라감)
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then 
-        move = move + Camera.CFrame.LookVector 
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then 
-        move = move - Camera.CFrame.LookVector 
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then 
-        move = move - Camera.CFrame.RightVector 
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then 
-        move = move + Camera.CFrame.RightVector 
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then 
-        move = move + Vector3.new(0, 1, 0) 
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then 
-        move = move - Vector3.new(0, 1, 0) 
-    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move -= Vector3.new(0,1,0) end
     
     if move.Magnitude > 0 then
-        HRP.CFrame = HRP.CFrame + (move.Unit * (_G.FlySpeed / 30))
+        HRP.CFrame = HRP.CFrame + (move.Unit * (_G.FlySpeed / 35))
     end
 end)
 
 _G.FlyNoclip = RunService.Stepped:Connect(function()
     if _G.FlyEnabled and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
+            if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
 end)
 
--- Character 탭 UI
+-- UI
 task.spawn(function()
     repeat task.wait(0.5) until Tabs and Tabs["character"] and Tabs["character"].Left
 
@@ -347,11 +332,6 @@ task.spawn(function()
 
     local section = _G.AddSection(Tabs["character"].Left, "character configuration")
 
-    _G.AddToggle(section, "fly", false, function(state)
-        _G.FlyEnabled = state
-    end)
-
-    _G.AddSlider(section, "fly speed", 30, 300, 120, function(val)
-        _G.FlySpeed = val
-    end)
+    _G.AddToggle(section, "fly", false, function(s) _G.FlyEnabled = s end)
+    _G.AddSlider(section, "fly speed", 30, 300, 100, function(v) _G.FlySpeed = v end)
 end)
