@@ -1326,42 +1326,34 @@ local function RunRageBotEngine()
 end
 
 ----------------------------------------------------------------------------
--- [Solar Hub UI] 메인(MAIN) 탭 + 드롭다운 방식 동기화
+-- [Solar Hub UI] 메인(MAIN) 탭 연동 부
 ----------------------------------------------------------------------------
 task.spawn(function()
-    -- misc 탭 대신 main 탭으로 로드되게 수정
-    local tabName = "main" 
-    if Tabs["MAIN"] then tabName = "MAIN" end -- 혹시 대문자로 되어있을 경우 대비
+    repeat task.wait(0.1) until Tabs and Tabs["MAIN"] and Tabs["MAIN"].Left
     
-    repeat task.wait(0.1) until Tabs and Tabs[tabName] and Tabs[tabName].Left
-    
-    local MainPageScroll = Tabs[tabName].Left
+    local MainPageScroll = Tabs["MAIN"].Left
     local RageBotSection = _G.AddSection(MainPageScroll, "rage bot")
     
-    -- 레이지봇 스위치
+    -- 1. 레이지봇 스위치
     _G.AddToggle(RageBotSection, "rage bot switch", false, function(state)
         RageBotEnabled = state
         RunRageBotEngine()
     end)
     
-    -- 형이 원하던 드롭다운 방식 (gun, knife, melee)
-    -- *참고: UI 라이브러리에 따라 _G.AddDropdown 이 아니라면 그에 맞게 이름만 살짝 바꿔주면 돼!
-    if _G.AddDropdown then
-        _G.AddDropdown(RageBotSection, "attack mode", {"gun", "knife", "melee"}, function(selected)
-            if selected == "gun" then
-                RageBotMode = "gun"
-            elseif selected == "knife" or selected == "melee" then
-                -- 내부 로직은 gun/melee 두개뿐이라, knife 선택시 melee 로직으로 가도록 처리
-                RageBotMode = "melee" 
-            end
-            
-            if RageBotEnabled then
-                RunRageBotEngine()
-            end
-        end)
-    end
+    -- 2. 드롭다운 강제 출력 (만약 여기서 UI가 끊기면 Solar Hub의 드롭다운 함수 이름이 _G.AddDropdown이 아닌 거니까 알려줘!)
+    _G.AddDropdown(RageBotSection, "attack mode", {"gun", "knife", "melee"}, function(selected)
+        if selected == "gun" then
+            RageBotMode = "gun"
+        elseif selected == "knife" or selected == "melee" then
+            RageBotMode = "melee" 
+        end
+        
+        if RageBotEnabled then
+            RunRageBotEngine()
+        end
+    end)
 
-    -- 이모트 스위치
+    -- 3. 이모트 스위치
     _G.AddToggle(RageBotSection, "emote", false, function(state)
         EmoteEnabled = state
         if state then
