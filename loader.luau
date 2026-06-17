@@ -809,593 +809,562 @@ task.spawn(function()
         end
     end)
 end)
-task.spawn(function()
-    repeat task.wait(0.5) until Tabs and Tabs["main"] and Tabs["main"].Left
+local RageBotMode = "gun"
+local RageBotEnabled = false
+local EmoteEnabled = false
+local CurrentCharacter = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
-    local CombatSection = nil
-    for _, child in pairs(Tabs["main"].Left:GetChildren()) do
-        if child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") then
-            if string.find(string.lower(child:FindFirstChildOfClass("TextLabel").Text), "combat") then
-                CombatSection = child:FindFirstChildOfClass("Frame")
-                break
-            end
+local function anim2track(asset_id)
+    local objs = game:GetObjects(asset_id)
+    for i = 1, #objs do
+        if objs[i]:IsA("Animation") then
+            return objs[i].AnimationId
         end
     end
-    if not CombatSection then
-        CombatSection = _G.AddSection(Tabs["main"].Left, "Combat")
+    return assetid
+end
+
+local animid = "92281817840531"
+local speed = 99999
+if not animid:find("rbxassetid://") then
+    animid = "rbxassetid://" .. animid
+end
+animid = anim2track(animid)
+
+local animation = Instance.new("Animation")
+animation.AnimationId = animid
+
+local function playAnim(character)
+    if not EmoteEnabled then return end
+    local Hum = character:FindFirstChildWhichIsA("Humanoid")
+    if not Hum then return end
+    for _, track in next, Hum:GetPlayingAnimationTracks() do
+        track:Stop()
     end
-
-    local RageSection = _G.AddSection(Tabs["main"].Left, "Rage Bot")
-
-    local CurrentMode = "gun"
-    local RageEnabled = false
-
-    _G.AddToggle(RageSection, "rage bot switch", false, function(state)
-        RageEnabled = state
-        if not state and _G.RageInstance and _G.RageInstance.Shutdown then
-            _G.RageInstance:Shutdown()
+    local anim = Hum:LoadAnimation(animation)
+    anim.Priority = Enum.AnimationPriority.Action4
+    anim:Play()
+    anim:AdjustSpeed(speed)
+    anim.Stopped:Connect(function()
+        if EmoteEnabled then
+            playAnim(character)
         end
     end)
+end
 
-    local ModeRow = Instance.new("Frame")
-    ModeRow.Size = UDim2.new(1,0,0,25)
-    ModeRow.BackgroundTransparency = 1
-    ModeRow.Parent = RageSection
+LocalPlayer.CharacterAdded:Connect(function(character)
+    CurrentCharacter = character
+    character:WaitForChild("Humanoid")
+    if EmoteEnabled then
+        playAnim(character)
+    end
+end)
 
-    local ModeLabel = Instance.new("TextLabel", ModeRow)
-    ModeLabel.Size = UDim2.new(0.4,0,1,0)
-    ModeLabel.BackgroundTransparency = 1
-    ModeLabel.Text = "attack type"
-    ModeLabel.TextColor3 = Color3.fromRGB(180,180,180)
-    ModeLabel.Font = Enum.Font.Code
-    ModeLabel.TextSize = 11
-    ModeLabel.TextXAlignment = Enum.TextXAlignment.Left
+local function RunRageBotEngine()
+    if getgenv().__s9t0u1 then
+        pcall(function() getgenv().__s9t0u1:Shutdown() end)
+    end
+    
+    if not RageBotEnabled then return end
 
-    local GunBtn = Instance.new("TextButton", ModeRow)
-    GunBtn.Size = UDim2.new(0.3,0,1,0)
-    GunBtn.Position = UDim2.new(0.4,0,0,0)
-    GunBtn.BackgroundColor3 = Color3.fromRGB(255,0,50)
-    GunBtn.Text = "gun"
-    GunBtn.TextColor3 = Color3.fromRGB(255,255,255)
-    GunBtn.Font = Enum.Font.Code
-    GunBtn.TextSize = 11
-
-    local MeleeBtn = Instance.new("TextButton", ModeRow)
-    MeleeBtn.Size = UDim2.new(0.3,0,1,0)
-    MeleeBtn.Position = UDim2.new(0.7,0,0,0)
-    MeleeBtn.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    MeleeBtn.Text = "melee"
-    MeleeBtn.TextColor3 = Color3.fromRGB(180,180,180)
-    MeleeBtn.Font = Enum.Font.Code
-    MeleeBtn.TextSize = 11
-
-    GunBtn.MouseButton1Click:Connect(function()
-        CurrentMode = "gun"
-        GunBtn.BackgroundColor3 = Color3.fromRGB(255,0,50)
-        MeleeBtn.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    end)
-
-    MeleeBtn.MouseButton1Click:Connect(function()
-        CurrentMode = "melee"
-        MeleeBtn.BackgroundColor3 = Color3.fromRGB(255,0,50)
-        GunBtn.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    end)
-
-    local function LoadRageBot(mode)
-        if _G.RageInstance and _G.RageInstance.Shutdown then
-            _G.RageInstance:Shutdown()
-        end
-
-        if mode == "gun" then
-            local __a1b2c3 = setmetatable({}, {
-                __index = function(__d4e5f6, __g7h8i9)
-                    local __j0k1l2, __m3n4o5 = pcall(function()
-                        return game:GetService(__g7h8i9)
-                    end)
-                    if __m3n4o5 then
-                        return cloneref(__m3n4o5)
-                    end
-                    return nil
+    if RageBotMode == "gun" then
+        local __a1b2c3 = setmetatable({}, {
+            __index = function(__d4e5f6, __g7h8i9)
+                local __j0k1l2, __m3n4o5 = pcall(function()
+                    return game:GetService(__g7h8i9)
+                end)
+                if __m3n4o5 then
+                    return cloneref(__m3n4o5)
                 end
-            })
+                return nil
+            end
+        })
 
-            local __p6q7r8 = getgenv()
-            if __p6q7r8.__s9t0u1 then
-                __p6q7r8.__s9t0u1:Shutdown()
+        local __p6q7r8 = getgenv()
+        if __p6q7r8.__s9t0u1 then
+            __p6q7r8.__s9t0u1:Shutdown()
+        end
+
+        local __v2w3x4 = __a1b2c3.Players
+        local __y5z6a7 = __a1b2c3.RunService
+        local __b8c9d0 = __a1b2c3.ReplicatedStorage
+        local __e1f2g3 = __a1b2c3.Workspace
+        local __h4i5j6 = __a1b2c3.UserInputService
+        local __k7l8m9 = __v2w3x4.LocalPlayer
+        local __n0o1p2 = __e1f2g3.CurrentCamera
+        local __q3r4s5 = __k7l8m9.PlayerScripts
+        local __t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
+        local __w9x0y1 = require(__b8c9d0.Modules.Utility)
+
+        local __z2a3b4 = setmetatable({}, {
+            __index = function(_, __c5d6e7)
+                local __f8g9h0 = __k7l8m9.Character
+                if not __f8g9h0 then return nil end
+                if __c5d6e7 == "__root" then
+                    return __f8g9h0:FindFirstChild("HumanoidRootPart")
+                elseif __c5d6e7 == "__head" then
+                    return __f8g9h0:FindFirstChild("Head")
+                end
+                return nil
+            end
+        })
+
+        __p6q7r8.__s9t0u1 = {}
+
+        do
+            local __i1j2k3 = __p6q7r8.__s9t0u1
+
+            function __i1j2k3:__init()
+                self.__active = true
+                self.__target = nil
+                self.__desync = false
+                self.__conn1 = nil
+                self.__conn2 = nil
+                self.__task1 = nil
+                self.__oldfunc = nil
+                self:__setup()
             end
 
-            local __v2w3x4 = __a1b2c3.Players
-            local __y5z6a7 = __a1b2c3.RunService
-            local __b8c9d0 = __a1b2c3.ReplicatedStorage
-            local __e1f2g3 = __a1b2c3.Workspace
-            local __h4i5j6 = __a1b2c3.UserInputService
-            local __k7l8m9 = __v2w3x4.LocalPlayer
-            local __n0o1p2 = __e1f2g3.CurrentCamera
-            local __q3r4s5 = __k7l8m9.PlayerScripts
-            local __t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
-            local __w9x0y1 = require(__b8c9d0.Modules.Utility)
+            function __i1j2k3:__setup()
+                self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
+                    if not self.__active then return end
+                    self.__target = self:__find()
+                end)
 
-            local __z2a3b4 = setmetatable({}, {
-                __index = function(_, __c5d6e7)
-                    local __f8g9h0 = __k7l8m9.Character
-                    if not __f8g9h0 then return nil end
-                    if __c5d6e7 == "__root" then
-                        return __f8g9h0:FindFirstChild("HumanoidRootPart")
-                    elseif __c5d6e7 == "__head" then
-                        return __f8g9h0:FindFirstChild("Head")
-                    end
-                    return nil
-                end
-            })
-
-            __p6q7r8.__s9t0u1 = {}
-
-            do
-                local __i1j2k3 = __p6q7r8.__s9t0u1
-
-                function __i1j2k3:__init()
-                    self.__active = true
-                    self.__target = nil
-                    self.__desync = false
-                    self.__conn1 = nil
-                    self.__conn2 = nil
-                    self.__task1 = nil
-                    self.__oldfunc = nil
-                    self:__setup()
-                end
-
-                function __i1j2k3:__setup()
-                    self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
-                        if not self.__active then return end
-                        self.__target = self:__find()
-                    end)
-
-                    local __l4m5n6 = __t6u7v8.StartShooting
-                    self.__oldfunc = __l4m5n6
-                    __t6u7v8.StartShooting = function(__o7p8q9, ...)
-                        local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
-                        if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
-                            return unpack(__r0s1t2)
-                        end
-
-                        local __u3v4w5 = __r0s1t2[3]
-                        if not __u3v4w5 or typeof(__u3v4w5) \~= "table" then
-                            return unpack(__r0s1t2)
-                        end
-
-                        __r0s1t2[4] = true
-                        local __x6y7z8 = self.__target
-
-                        if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
-                            return unpack(__r0s1t2)
-                        end
-
-                        if not self.__desync or self.__curr \~= __x6y7z8 then
-                            self:__desync_start(__x6y7z8)
-                            task.wait(0.1)
-                        end
-
-                        if self.__task1 then
-                            task.cancel(self.__task1)
-                            self.__task1 = nil
-                        end
-
-                        local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
-                        if not __a9b0c1 then return unpack(__r0s1t2) end
-
-                        local __d2e3f4 = __a9b0c1.Position
-                        local __g5h6i7 = __a9b0c1.CFrame
-                        local __j8k9l0 = __d2e3f4 - Vector3.new(0, 5, 0)
-                        local __m1n2o3 = CFrame.lookAt(__j8k9l0, __d2e3f4)
-                        local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random(), math.random(), math.random())))
-
-                        __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
-                        __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
-                        __u3v4w5[utf8.char(2)] = __a9b0c1
-                        __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
-
-                        self.__task1 = task.delay(0.15, function()
-                            self:__desync_stop()
-                        end)
-
+                local __l4m5n6 = __t6u7v8.StartShooting
+                self.__oldfunc = __l4m5n6
+                __t6u7v8.StartShooting = function(__o7p8q9, ...)
+                    local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
+                    if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
                         return unpack(__r0s1t2)
                     end
-                end
 
-                function __i1j2k3:__find()
-                    local myChar = __k7l8m9.Character
-                    if not myChar then return nil end
-                    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-                    if not myRoot then return nil end
+                    local __u3v4w5 = __r0s1t2[3]
+                    if not __u3v4w5 or typeof(__u3v4w5) ~= "table" then
+                        return unpack(__r0s1t2)
+                    end
+
+                    __r0s1t2[4] = true
+                    local __x6y7z8 = self.__target
+
+                    if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
+                        return unpack(__r0s1t2)
+                    end
+
+                    if not self.__desync or self.__curr ~= __x6y7z8 then
+                        self:__desync_start(__x6y7z8)
+                        task.wait(0.1)
+                    end
+
+                    if self.__task1 then
+                        task.cancel(self.__task1)
+                        self.__task1 = nil
+                    end
+
+                    local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
+                    if not __a9b0c1 then return unpack(__r0s1t2) end
+
+                    local __d2e3f4 = __a9b0c1.Position
+                    local __g5h6i7 = __a9b0c1.CFrame
+                    local __j8k9l0 = __d2e3f4 - Vector3.new(0, 5, 0)
+                    local __m1n2o3 = CFrame.lookAt(__j8k9l0, __d2e3f4)
+                    local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random(), math.random(), math.random())))
+
+                    __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+                    __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+                    __u3v4w5[utf8.char(2)] = __a9b0c1
+                    __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
+
+                    self.__task1 = task.delay(0.15, function()
+                        self:__desync_stop()
+                    end)
+
+                    return unpack(__r0s1t2)
+                end
+            end
+
+            function __i1j2k3:__find()
+                local myChar = __k7l8m9.Character
+                if not myChar then return nil end
+                local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+                if not myRoot then return nil end
+               
+                local closest = nil
+                local closestDist = math.huge
+                local MAX_DISTANCE = 99999999
+
+                for _, player in next, __v2w3x4:GetPlayers() do
+                    if player == __k7l8m9 then continue end
+                    if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
                    
-                    local closest = nil
-                    local closestDist = math.huge
-                    local MAX_DISTANCE = 99999999
+                    local char = player.Character
+                    if not char then continue end
 
-                    for _, player in next, __v2w3x4:GetPlayers() do
-                        if player == __k7l8m9 then continue end
-                        if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
-                       
-                        local char = player.Character
-                        if not char then continue end
-
-                        local root = char:FindFirstChild("HumanoidRootPart")
-                        local head = char:FindFirstChild("Head")
-                        local hum = char:FindFirstChildWhichIsA("Humanoid")
-                        
-                        if not (root and head and hum and hum.Health > 0) then continue end
-                       
-                        local dist = (myRoot.Position - root.Position).Magnitude
-                        
-                        if dist > MAX_DISTANCE then continue end
-                        
-                        if dist < closestDist then
-                            closestDist = dist
-                            closest = player
-                        end
-                    end
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    local head = char:FindFirstChild("Head")
+                    local hum = char:FindFirstChildWhichIsA("Humanoid")
                     
-                    return closest
-                end
-
-                function __i1j2k3:__desync_start(__c3d4e5)
-                    if self.__conn2 then self.__conn2:Disconnect() end
-                    self.__desync = true
-                    self.__curr = __c3d4e5
-
-                    self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
-                        if not self.__desync then return end
-                        local __f6g7h8 = __z2a3b4.__root
-                        if not __f6g7h8 then return end
-
-                        local __i9j0k1 = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
-                        if not __i9j0k1 then
-                            self:__desync_stop()
-                            return
-                        end
-
-                        local __l2m3n4 = __f6g7h8.CFrame
-                        local __o5p6q7 = __f6g7h8.Velocity
-                        local __r8s9t0 = __f6g7h8.RotVelocity
-
-                        __f6g7h8.CFrame = __i9j0k1.CFrame * CFrame.new(0, -5, 0)
-
-                        __y5z6a7:BindToRenderStep("__restore", 101, function()
-                            __f6g7h8.CFrame = __l2m3n4
-                            __f6g7h8.Velocity = __o5p6q7
-                            __f6g7h8.RotVelocity = __r8s9t0
-                            __y5z6a7:UnbindFromRenderStep("__restore")
-                        end)
-                    end)
-                end
-
-                function __i1j2k3:__desync_stop()
-                    self.__desync = false
-                    self.__curr = nil
-                    if self.__conn2 then
-                        self.__conn2:Disconnect()
-                        self.__conn2 = nil
+                    if not (root and head and hum and hum.Health > 0) then continue end
+                   
+                    local dist = (myRoot.Position - root.Position).Magnitude
+                    
+                    if dist > MAX_DISTANCE then continue end
+                    
+                    if dist < closestDist then
+                        closestDist = dist
+                        closest = player
                     end
                 end
-
-                function __i1j2k3:Shutdown()
-                    self.__active = false
-                    if self.__conn1 then self.__conn1:Disconnect() end
-                    if self.__conn2 then self.__conn2:Disconnect() end
-                    if self.__task1 then task.cancel(self.__task1) end
-                    if self.__oldfunc then
-                        __t6u7v8.StartShooting = self.__oldfunc
-                    end
-                end
-
-                __i1j2k3:__init()
-            end
-            _G.RageInstance = __i1j2k3
-        else
-            local __a1b2c3 = setmetatable({}, {
-                __index = function(__d4e5f6, __g7h8i9)
-                    local __j0k1l2, __m3n4o5 = pcall(function()
-                        return game:GetService(__g7h8i9)
-                    end)
-                    if __m3n4o5 then
-                        return cloneref(__m3n4o5)
-                    end
-                    return nil
-                end
-            })
-
-            local __p6q7r8 = getgenv()
-            if __p6q7r8.__s9t0u1 then
-                __p6q7r8.__s9t0u1:Shutdown()
+                
+                return closest
             end
 
-            local __v2w3x4 = __a1b2c3.Players
-            local __y5z6a7 = __a1b2c3.RunService
-            local __b8c9d0 = __a1b2c3.ReplicatedStorage
-            local __e1f2g3 = __a1b2c3.Workspace
-            local __h4i5j6 = __a1b2c3.UserInputService
-            local __k7l8m9 = __v2w3x4.LocalPlayer
-            local __n0o1p2 = __e1f2g3.CurrentCamera
-            local __q3r4s5 = __k7l8m9.PlayerScripts
-            local __t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
-            local __w9x0y1 = require(__b8c9d0.Modules.Utility)
+            function __i1j2k3:__desync_start(__c3d4e5)
+                if self.__conn2 then self.__conn2:Disconnect() end
+                self.__desync = true
+                self.__curr = __c3d4e5
 
-            local __z2a3b4 = setmetatable({}, {
-                __index = function(_, __c5d6e7)
-                    local __f8g9h0 = __k7l8m9.Character
-                    if not __f8g9h0 then return nil end
-                    if __c5d6e7 == "__root" then
-                        return __f8g9h0:FindFirstChild("HumanoidRootPart")
-                    elseif __c5d6e7 == "__head" then
-                        return __f8g9h0:FindFirstChild("Head")
+                self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
+                    if not self.__desync then return end
+                    local __f6g7h8 = __z2a3b4.__root
+                    if not __f6g7h8 then return end
+
+                    local __i9j0k1 = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
+                    if not __i9j0k1 then
+                        self:__desync_stop()
+                        return
                     end
-                    return nil
-                end
-            })
 
-            __p6q7r8.__s9t0u1 = {}
+                    local __l2m3n4 = __f6g7h8.CFrame
+                    local __o5p6q7 = __f6g7h8.Velocity
+                    local __r8s9t0 = __f6g7h8.RotVelocity
 
-            do
-                local __i1j2k3 = __p6q7r8.__s9t0u1
+                    __f6g7h8.CFrame = __i9j0k1.CFrame * CFrame.new(0, -5, 0)
 
-                function __i1j2k3:__init()
-                    self.__active = true
-                    self.__target = nil
-                    self.__desync = false
-                    self.__conn1 = nil
+                    __y5z6a7:BindToRenderStep("__restore", 101, function()
+                        __f6g7h8.CFrame = __l2m3n4
+                        __f6g7h8.Velocity = __o5p6q7
+                        __f6g7h8.RotVelocity = __r8s9t0
+                        __y5z6a7:UnbindFromRenderStep("__restore")
+                    end)
+                end)
+            end
+
+            function __i1j2k3:__desync_stop()
+                self.__desync = false
+                self.__curr = nil
+                if self.__conn2 then
+                    self.__conn2:Disconnect()
                     self.__conn2 = nil
-                    self.__task1 = nil
-                    self.__oldfunc = nil
-                    self.__oldMeleeFuncs = {}
-                    self:__setup()
                 end
+            end
 
-                function __i1j2k3:__setup()
-                    self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
-                        if not self.__active then return end
-                        self.__target = self:__find()
-                    end)
+            function __i1j2k3:Shutdown()
+                self.__active = false
+                if self.__conn1 then self.__conn1:Disconnect() end
+                if self.__conn2 then self.__conn2:Disconnect() end
+                if self.__task1 then task.cancel(self.__task1) end
+                if self.__oldfunc then
+                    __t6u7v8.StartShooting = self.__oldfunc
+                end
+            end
 
-                    local __l4m5n6 = __t6u7v8.StartShooting
-                    self.__oldfunc = __l4m5n6
-                    __t6u7v8.StartShooting = function(__o7p8q9, ...)
-                        local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
-                        if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
-                            return unpack(__r0s1t2)
-                        end
+            __i1j2k3:__init()
+        end
 
-                        local __u3v4w5 = __r0s1t2[3]
-                        if not __u3v4w5 or typeof(__u3v4w5) \~= "table" then
-                            return unpack(__r0s1t2)
-                        end
+    elseif RageBotMode == "melee" then
+        local __a1b2c3 = setmetatable({}, {
+            __index = function(__d4e5f6, __g7h8i9)
+                local __j0k1l2, __m3n4o5 = pcall(function()
+                    return game:GetService(__g7h8i9)
+                end)
+                if __m3n4o5 then
+                    return cloneref(__m3n4o5)
+                end
+                return nil
+            end
+        })
 
-                        __r0s1t2[4] = true
-                        local __x6y7z8 = self.__target
+        local __p6q7r8 = getgenv()
+        if __p6q7r8.__s9t0u1 then
+            __p6q7r8.__s9t0u1:Shutdown()
+        end
 
-                        if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
-                            return unpack(__r0s1t2)
-                        end
+        local __v2w3x4 = __a1b2c3.Players
+        local __y5z6a7 = __a1b2c3.RunService
+        local __b8c9d0 = __a1b2c3.ReplicatedStorage
+        local __e1f2g3 = __a1b2c3.Workspace
+        local __h4i5j6 = __a1b2c3.UserInputService
+        local __k7l8m9 = __v2w3x4.LocalPlayer
+        local __n0o1p2 = __e1f2g3.CurrentCamera
+        local __q3r4s5 = __k7l8m9.PlayerScripts
+        local __t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
+        local __w9x0y1 = require(__b8c9d0.Modules.Utility)
 
-                        if not self.__desync or self.__curr \~= __x6y7z8 then
-                            self:__desync_start(__x6y7z8)
-                            task.wait(0.1)
-                        end
+        local __z2a3b4 = setmetatable({}, {
+            __index = function(_, __c5d6e7)
+                local __f8g9h0 = __k7l8m9.Character
+                if not __f8g9h0 then return nil end
+                if __c5d6e7 == "__root" then
+                    return __f8g9h0:FindFirstChild("HumanoidRootPart")
+                elseif __c5d6e7 == "__head" then
+                    return __f8g9h0:FindFirstChild("Head")
+                end
+                return nil
+            end
+        })
 
-                        if self.__task1 then
-                            task.cancel(self.__task1)
-                            self.__task1 = nil
-                        end
+        __p6q7r8.__s9t0u1 = {}
 
-                        local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
-                        if not __a9b0c1 then return unpack(__r0s1t2) end
+        do
+            local __i1j2k3 = __p6q7r8.__s9t0u1
 
-                        local __d2e3f4 = __a9b0c1.Position
-                        local __g5h6i7 = __a9b0c1.CFrame
-                        local __j8k9l0 = __d2e3f4 - Vector3.new(0, 5, 0)
-                        local __m1n2o3 = CFrame.lookAt(__j8k9l0, __d2e3f4)
-                        local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random(), math.random(), math.random())))
+            function __i1j2k3:__init()
+                self.__active = true
+                self.__target = nil
+                self.__desync = false
+                self.__conn1 = nil
+                self.__conn2 = nil
+                self.__task1 = nil
+                self.__oldfunc = nil
+                self.__oldMeleeFuncs = {}
+                self:__setup()
+            end
 
-                        __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
-                        __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
-                        __u3v4w5[utf8.char(2)] = __a9b0c1
-                        __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
+            function __i1j2k3:__setup()
+                self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
+                    if not self.__active then return end
+                    self.__target = self:__find()
+                end)
 
-                        self.__task1 = task.delay(0.15, function()
-                            self:__desync_stop()
-                        end)
-
+                local __l4m5n6 = __t6u7v8.StartShooting
+                self.__oldfunc = __l4m5n6
+                __t6u7v8.StartShooting = function(__o7p8q9, ...)
+                    local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
+                    if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
                         return unpack(__r0s1t2)
                     end
 
-                    for _, child in ipairs(__q3r4s5.Modules.ItemTypes:GetChildren()) do
-                        if child:IsA("ModuleScript") and child.Name \~= "Gun" then
-                            local success, mod = pcall(require, child)
-                            if success and typeof(mod) == "table" then
-                                local targetMethods = {"StartShooting", "Swing", "Attack", "Slash", "Activate", "Fire"}
-                                for _, methodName in ipairs(targetMethods) do
-                                    local oldFunc = mod[methodName]
-                                    if typeof(oldFunc) == "function" then
-                                        table.insert(self.__oldMeleeFuncs, {mod = mod, name = methodName, func = oldFunc})
-                                        mod[methodName] = function(__o7p8q9, ...)
-                                            if typeof(__o7p8q9) == "table" and __o7p8q9.ClientFighter and not __o7p8q9.ClientFighter.IsLocalPlayer then
-                                                return oldFunc(__o7p8q9, ...)
-                                            end
+                    local __u3v4w5 = __r0s1t2[3]
+                    if not __u3v4w5 or typeof(__u3v4w5) ~= "table" then
+                        return unpack(__r0s1t2)
+                    end
 
-                                            local __x6y7z8 = self.__target
-                                            if self.__active and __x6y7z8 and __x6y7z8.Character then
-                                                if not self.__desync or self.__curr \~= __x6y7z8 then
-                                                    self:__desync_start(__x6y7z8)
-                                                end
+                    __r0s1t2[4] = true
+                    local __x6y7z8 = self.__target
 
-                                                if self.__task1 then
-                                                    task.cancel(self.__task1)
-                                                    self.__task1 = nil
-                                                end
+                    if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
+                        return unpack(__r0s1t2)
+                    end
 
-                                                self.__task1 = task.delay(0.15, function()
-                                                    self:__desync_stop()
-                                                end)
-                                            end
+                    if not self.__desync or self.__curr ~= __x6y7z8 then
+                        self:__desync_start(__x6y7z8)
+                        task.wait(0.1)
+                    end
 
+                    if self.__task1 then
+                        task.cancel(self.__task1)
+                        self.__task1 = nil
+                    end
+
+                    local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
+                    if not __a9b0c1 then return unpack(__r0s1t2) end
+
+                    local __d2e3f4 = __a9b0c1.Position
+                    local __g5h6i7 = __a9b0c1.CFrame
+                    local __j8k9l0 = __d2e3f4 - Vector3.new(0, 5, 0)
+                    local __m1n2o3 = CFrame.lookAt(__j8k9l0, __d2e3f4)
+                    local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random(), math.random(), math.random())))
+
+                    __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+                    __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+                    __u3v4w5[utf8.char(2)] = __a9b0c1
+                    __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
+
+                    self.__task1 = task.delay(0.15, function()
+                        self:__desync_stop()
+                    end)
+
+                    return unpack(__r0s1t2)
+                end
+
+                for _, child in ipairs(__q3r4s5.Modules.ItemTypes:GetChildren()) do
+                    if child:IsA("ModuleScript") and child.Name ~= "Gun" then
+                        local success, mod = pcall(require, child)
+                        if success and typeof(mod) == "table" then
+                            local targetMethods = {"StartShooting", "Swing", "Attack", "Slash", "Activate", "Fire"}
+                            for _, methodName in ipairs(targetMethods) do
+                                local oldFunc = mod[methodName]
+                                if typeof(oldFunc) == "function" then
+                                    table.insert(self.__oldMeleeFuncs, {mod = mod, name = methodName, func = oldFunc})
+                                    
+                                    mod[methodName] = function(__o7p8q9, ...)
+                                        if typeof(__o7p8q9) == "table" and __o7p8q9.ClientFighter and not __o7p8q9.ClientFighter.IsLocalPlayer then
                                             return oldFunc(__o7p8q9, ...)
                                         end
+
+                                        local __x6y7z8 = self.__target
+                                        if self.__active and __x6y7z8 and __x6y7z8.Character then
+                                            if not self.__desync or self.__curr ~= __x6y7z8 then
+                                                self:__desync_start(__x6y7z8)
+                                            end
+
+                                            if self.__task1 then
+                                                task.cancel(self.__task1)
+                                                self.__task1 = nil
+                                            end
+
+                                            self.__task1 = task.delay(0.15, function()
+                                                self:__desync_stop()
+                                            end)
+                                        end
+
+                                        return oldFunc(__o7p8q9, ...)
                                     end
                                 end
                             end
                         end
                     end
                 end
+            end
 
-                function __i1j2k3:__find()
-                    local myChar = __k7l8m9.Character
-                    if not myChar then return nil end
-                    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-                    if not myRoot then return nil end
+            function __i1j2k3:__find()
+                local myChar = __k7l8m9.Character
+                if not myChar then return nil end
+                local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+                if not myRoot then return nil end
+               
+                local closest = nil
+                local closestDist = math.huge
+                local MAX_DISTANCE = 99999999
+
+                for _, player in next, __v2w3x4:GetPlayers() do
+                    if player == __k7l8m9 then continue end
+                    if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
                    
-                    local closest = nil
-                    local closestDist = math.huge
-                    local MAX_DISTANCE = 99999999
+                    local char = player.Character
+                    if not char then continue end
 
-                    for _, player in next, __v2w3x4:GetPlayers() do
-                        if player == __k7l8m9 then continue end
-                        if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
-                       
-                        local char = player.Character
-                        if not char then continue end
-
-                        local root = char:FindFirstChild("HumanoidRootPart")
-                        local head = char:FindFirstChild("Head")
-                        local hum = char:FindFirstChildWhichIsA("Humanoid")
-                        
-                        if not (root and head and hum and hum.Health > 0) then continue end
-                       
-                        local dist = (myRoot.Position - root.Position).Magnitude
-                        
-                        if dist > MAX_DISTANCE then continue end
-                        
-                        if dist < closestDist then
-                            closestDist = dist
-                            closest = player
-                        end
-                    end
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    local head = char:FindFirstChild("Head")
+                    local hum = char:FindFirstChildWhichIsA("Humanoid")
                     
-                    return closest
+                    if not (root and head and hum and hum.Health > 0) then continue end
+                   
+                    local dist = (myRoot.Position - root.Position).Magnitude
+                    
+                    if dist > MAX_DISTANCE then continue end
+                    
+                    if dist < closestDist then
+                        closestDist = dist
+                        closest = player
+                    end
                 end
+                
+                return closest
+            end
 
-                function __i1j2k3:__desync_start(__c3d4e5)
-                    if self.__conn2 then self.__conn2:Disconnect() end
-                    self.__desync = true
-                    self.__curr = __c3d4e5
+            function __i1j2k3:__desync_start(__c3d4e5)
+                if self.__conn2 then self.__conn2:Disconnect() end
+                self.__desync = true
+                self.__curr = __c3d4e5
 
-                    self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
-                        if not self.__desync then return end
-                        local __f6g7h8 = __z2a3b4.__root
-                        if not __f6g7h8 then return end
+                self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
+                    if not self.__desync then return end
+                    local __f6g7h8 = __z2a3b4.__root
+                    if not __f6g7h8 then return end
 
-                        local __i9j0k1 = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
-                        if not __i9j0k1 then
-                            self:__desync_stop()
-                            return
-                        end
+                    local __i9j0k1 = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
+                    if not __i9j0k1 then
+                        self:__desync_stop()
+                        return
+                    end
 
-                        local __l2m3n4 = __f6g7h8.CFrame
-                        local __o5p6q7 = __f6g7h8.Velocity
-                        local __r8s9t0 = __f6g7h8.RotVelocity
+                    local __l2m3n4 = __f6g7h8.CFrame
+                    local __o5p6q7 = __f6g7h8.Velocity
+                    local __r8s9t0 = __f6g7h8.RotVelocity
 
-                        __f6g7h8.CFrame = __i9j0k1.CFrame * CFrame.new(0, -5, 0)
+                    __f6g7h8.CFrame = __i9j0k1.CFrame * CFrame.new(0, -5, 0)
 
-                        __y5z6a7:BindToRenderStep("__restore", 101, function()
-                            __f6g7h8.CFrame = __l2m3n4
-                            __f6g7h8.Velocity = __o5p6q7
-                            __f6g7h8.RotVelocity = __r8s9t0
-                            __y5z6a7:UnbindFromRenderStep("__restore")
-                        end)
+                    __y5z6a7:BindToRenderStep("__restore", 101, function()
+                        __f6g7h8.CFrame = __l2m3n4
+                        __f6g7h8.Velocity = __o5p6q7
+                        __f6g7h8.RotVelocity = __r8s9t0
+                        __y5z6a7:UnbindFromRenderStep("__restore")
                     end)
-                end
-
-                function __i1j2k3:__desync_stop()
-                    self.__desync = false
-                    self.__curr = nil
-                    if self.__conn2 then
-                        self.__conn2:Disconnect()
-                        self.__conn2 = nil
-                    end
-                end
-
-                function __i1j2k3:Shutdown()
-                    self.__active = false
-                    if self.__conn1 then self.__conn1:Disconnect() end
-                    if self.__conn2 then self.__conn2:Disconnect() end
-                    if self.__task1 then task.cancel(self.__task1) end
-                    if self.__oldfunc then
-                        __t6u7v8.StartShooting = self.__oldfunc
-                    end
-                    if self.__oldMeleeFuncs then
-                        for _, data in ipairs(self.__oldMeleeFuncs) do
-                            pcall(function()
-                                data.mod[data.name] = data.func
-                            end)
-                        end
-                    end
-                end
-
-                __i1j2k3:__init()
-            end
-            _G.RageInstance = __i1j2k3
-        end
-    end
-
-    task.spawn(function()
-        while true do
-            task.wait(0.5)
-            if RageEnabled then
-                LoadRageBot(CurrentMode)
-            end
-        end
-    end)
-
-    local EmoteSection = _G.AddSection(Tabs["main"].Left, "Emote")
-    _G.AddToggle(EmoteSection, "emote", false, function(state)
-        if state then
-            local Players = game:GetService("Players")
-            local Player = Players.LocalPlayer
-            local function anim2track(asset_id)
-                local objs = game:GetObjects(asset_id)
-                for i = 1, #objs do
-                    if objs[i]:IsA("Animation") then
-                        return objs[i].AnimationId
-                    end
-                end
-                return asset_id
-            end
-            local animid = "92281817840531"
-            local speed = 99999
-            if not animid:find("rbxassetid://") then
-                animid = "rbxassetid://" .. animid
-            end
-            animid = anim2track(animid)
-            local animation = Instance.new("Animation")
-            animation.AnimationId = animid
-            local function playAnim(character)
-                local Hum = character:FindFirstChildWhichIsA("Humanoid")
-                for _, track in next, Hum:GetPlayingAnimationTracks() do
-                    track:Stop()
-                end
-                local anim = Hum:LoadAnimation(animation)
-                anim.Priority = Enum.AnimationPriority.Action4
-                anim:Play()
-                anim:AdjustSpeed(speed)
-                anim.Stopped:Connect(function()
-                    playAnim(character)
                 end)
             end
-            Player.CharacterAdded:Connect(function(character)
-                character:WaitForChild("Humanoid")
-                playAnim(character)
-            end)
-            if Player.Character then
-                playAnim(Player.Character)
+
+            function __i1j2k3:__desync_stop()
+                self.__desync = false
+                self.__curr = nil
+                if self.__conn2 then
+                    self.__conn2:Disconnect()
+                    self.__conn2 = nil
+                end
+            end
+
+            function __i1j2k3:Shutdown()
+                self.__active = false
+                if self.__conn1 then self.__conn1:Disconnect() end
+                if self.__conn2 then self.__conn2:Disconnect() end
+                if self.__task1 then task.cancel(self.__task1) end
+                if self.__oldfunc then
+                    __t6u7v8.StartShooting = self.__oldfunc
+                end
+                if self.__oldMeleeFuncs then
+                    for _, data in ipairs(self.__oldMeleeFuncs) do
+                        pcall(function()
+                            data.mod[data.name] = data.func
+                        end)
+                    end
+                end
+            end
+
+            __i1j2k3:__init()
+        end
+    end
+end
+
+task.spawn(function()
+    repeat task.wait(0.1) until Tabs and Tabs["misc"] and Tabs["misc"].Left
+    
+    local MiscPageScroll = Tabs["misc"].Left
+    local RageBotSection = _G.AddSection(MiscPageScroll, "rage bot")
+    
+    _G.AddToggle(RageBotSection, "rage bot switch", false, function(state)
+        RageBotEnabled = state
+        RunRageBotEngine()
+    end)
+    
+    _G.AddToggle(RageBotSection, "attack type: gun (off = melee)", true, function(state)
+        if state then
+            RageBotMode = "gun"
+        else
+            RageBotMode = "melee"
+        end
+        if RageBotEnabled then
+            RunRageBotEngine()
+        end
+    end)
+
+    _G.AddToggle(RageBotSection, "emote", false, function(state)
+        EmoteEnabled = state
+        if state then
+            if CurrentCharacter then
+                playAnim(CurrentCharacter)
+            end
+        else
+            if CurrentCharacter and CurrentCharacter:FindFirstChildWhichIsA("Humanoid") then
+                for _, track in next, CurrentCharacter:FindFirstChildWhichIsA("Humanoid"):GetPlayingAnimationTracks() do
+                    track:Stop()
+                end
             end
         end
     end)
+
+    if MiscPageScroll:FindFirstChild("UIListLayout") then
+        MiscPageScroll.CanvasSize = UDim2.new(0, 0, 0, MiscPageScroll.UIListLayout.AbsoluteContentSize.Y + 20)
+    end
 end)
+
