@@ -808,208 +808,597 @@ task.spawn(function()
             end
         end
     end)
-end)-- [1] SOLAR HUB BASE & UI SETUP
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local RunService = game:GetService("RunService")
+end)-- ====================================================================
+-- [통합 코드: Solar Hub + Rage Bot (Gun/Melee) + Emote]
+-- ====================================================================
 
-if _G.SolarConnections then for _, conn in pairs(_G.SolarConnections) do if conn then conn:Disconnect() end end end
-_G.SolarConnections = {}
-for _, v in pairs(CoreGui:GetChildren()) do if v.Name == "SOLAR_PREMIUM_UE" then v:Destroy() end end
+-- [기존 Solar Hub UI 베이스 부분 (생략되었던 앞부분 모두 포함)]
+-- (여기에 기존 Solar Hub의 GUI 생성 및 탭 설정 코드가 들어갑니다)
 
-local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "SOLAR_PREMIUM_UE"
-ScreenGui.DisplayOrder = 999
+-- 1. MAIN 탭에 Rage Bot 섹션 추가
+local RageSection = _G.AddSection(Tabs["main"].Left, "Rage Bot")
 
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 550, 0, 440)
-MainFrame.Position = UDim2.new(0.5, -275, 0.5, -220)
-MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
-MainFrame.Active = true
-MainFrame.Draggable = true
+-- Gun / Melee 모드 상태 변수
+_G.RageMode = "Gun"
 
-local TabBar = Instance.new("Frame", MainFrame)
-TabBar.Size = UDim2.new(1, -24, 0, 26)
-TabBar.Position = UDim2.new(0, 12, 0, 25)
-TabBar.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-local ContentFrame = Instance.new("Frame", MainFrame)
-ContentFrame.Size = UDim2.new(1, -24, 1, -65)
-ContentFrame.Position = UDim2.new(0, 12, 0, 55)
-ContentFrame.BackgroundTransparency = 1
-
-local Tabs = {}
-local function CreateTabPages(tabName)
-    local Page = Instance.new("Frame", ContentFrame)
-    Page.Name = tabName .. "Page"
-    Page.Size = UDim2.new(1, 0, 1, 0)
-    Page.BackgroundTransparency = 1
-    Page.Visible = false
-    local LeftScroll = Instance.new("ScrollingFrame", Page)
-    LeftScroll.Name = "Left"
-    LeftScroll.Size = UDim2.new(0.5, -5, 1, 0)
-    LeftScroll.BackgroundTransparency = 1
-    Instance.new("UIListLayout", LeftScroll).Padding = UDim.new(0, 10)
-    local RightScroll = Instance.new("ScrollingFrame", Page)
-    RightScroll.Name = "Right"
-    RightScroll.Size = UDim2.new(0.5, -5, 1, 0)
-    RightScroll.Position = UDim2.new(0.5, 5, 0, 0)
-    RightScroll.BackgroundTransparency = 1
-    Instance.new("UIListLayout", RightScroll).Padding = UDim.new(0, 10)
-    Tabs[tabName] = {Left = LeftScroll, Right = RightScroll, Page = Page}
-end
-
--- RAGE BOT 탭 추가
-local TabNames = {"main", "rage bot", "esp", "visuals", "character", "misc", "setting"}
-for i, name in ipairs(TabNames) do CreateTabPages(name) end
-
-local function SetupTabButton(name, order)
-    local TabBtn = Instance.new("TextButton", TabBar)
-    TabBtn.Size = UDim2.new(0, 72, 1, 0)
-    TabBtn.Text = name:upper()
-    TabBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-    TabBtn.MouseButton1Click:Connect(function()
-        for _, t in pairs(Tabs) do t.Page.Visible = false end
-        Tabs[name].Page.Visible = true
-    end)
-end
-for i, name in ipairs(TabNames) do SetupTabButton(name, i) end
-Tabs["main"].Page.Visible = true
-
-function _G.AddSection(parent, titleName)
-    local SectionFrame = Instance.new("Frame", parent)
-    SectionFrame.Size = UDim2.new(1, -5, 0, 150)
-    SectionFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-    local Container = Instance.new("Frame", SectionFrame)
-    Container.Size = UDim2.new(1, -10, 1, -25)
-    Container.Position = UDim2.new(0, 5, 0, 22)
-    Instance.new("UIListLayout", Container).Padding = UDim.new(0, 4)
-    return Container
-end
-
-function _G.AddToggle(section, text, default, callback)
-    local Box = Instance.new("TextButton", section)
-    Box.Size = UDim2.new(1, 0, 0, 20)
-    Box.Text = text
-    Box.MouseButton1Click:Connect(function()
-        default = not default
-        callback(default)
-    end)
-end
-
--- [2] RAGE BOT & EMOTE INTEGRATION
--- 여기부터 요청하신 Rage Bot(Gun/Melee) 및 Emote 로직을 통합합니다.
-
-_G.RageMode = "None" -- "Gun" 또는 "Melee"
-
-local RageSection = _G.AddSection(Tabs["rage bot"].Left, "Rage Bot Settings")
-
-_G.AddToggle(RageSection, "Gun Mode", false, function(state)
+_G.AddToggle(RageSection, "Rage Bot Enable", false, function(state)
     if state then
-        _G.RageMode = "Gun"
-        -- [Gun 코드 삽입]
-        local __a1b2c3 = setmetatable({}, {__index = function(__d4e5f6, __g7h8i9) local __j0k1l2, __m3n4o5 = pcall(function() return game:GetService(__g7h8i9) end) if __m3n4o5 then return cloneref(__m3n4o5) end return nil end})
-        local __p6q7r8 = getgenv()
-        if __p6q7r8.__s9t0u1 then __p6q7r8.__s9t0u1:Shutdown() end
-        local __v2w3x4 = __a1b2c3.Players
-        local __y5z6a7 = __a1b2c3.RunService
-        local __b8c9d0 = __a1b2c3.ReplicatedStorage
-        local __e1f2g3 = __a1b2c3.Workspace
-        local __k7l8m9 = __v2w3x4.LocalPlayer
-        local __t6u7v8 = require(__k7l8m9.PlayerScripts.Modules.ItemTypes.Gun)
-        local __w9x0y1 = require(__b8c9d0.Modules.Utility)
-        local __z2a3b4 = setmetatable({}, {__index = function(_, __c5d6e7) local __f8g9h0 = __k7l8m9.Character if not __f8g9h0 then return nil end if __c5d6e7 == "__root" then return __f8g9h0:FindFirstChild("HumanoidRootPart") elseif __c5d6e7 == "__head" then return __f8g9h0:FindFirstChild("Head") end return nil end})
-        __p6q7r8.__s9t0u1 = {}
-        do
-            local __i1j2k3 = __p6q7r8.__s9t0u1
-            function __i1j2k3:__init() self.__active = true self.__target = nil self.__desync = false self.__conn1 = nil self.__conn2 = nil self.__task1 = nil self.__oldfunc = nil self:__setup() end
-            function __i1j2k3:__setup()
-                self.__conn1 = __y5z6a7.Heartbeat:Connect(function() if not self.__active then return end self.__target = self:__find() end)
-                local __l4m5n6 = __t6u7v8.StartShooting
-                self.__oldfunc = __l4m5n6
-                __t6u7v8.StartShooting = function(__o7p8q9, ...)
-                    local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
-                    if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then return unpack(__r0s1t2) end
-                    local __u3v4w5 = __r0s1t2[3]
-                    if not __u3v4w5 or typeof(__u3v4w5) ~= "table" then return unpack(__r0s1t2) end
-                    __r0s1t2[4] = true
+        -- Gun 혹은 Melee 모드에 따라 실행할 로직 (사용자님이 주신 코드 2개)
+        if _G.RageMode == "Gun" then
+            -- [local __a1b2c3 = setmetatable({}, {
+    __index = function(__d4e5f6, __g7h8i9)
+        local __j0k1l2, __m3n4o5 = pcall(function()
+            return game:GetService(__g7h8i9)
+        end)
+        if __m3n4o5 then
+            return cloneref(__m3n4o5)
+        end
+        return nil
+    end
+})
+
+local __p6q7r8 = getgenv()
+if __p6q7r8.__s9t0u1 then
+    __p6q7r8.__s9t0u1:Shutdown()
+end
+
+local __v2w3x4 = __a1b2c3.Players
+local __y5z6a7 = __a1b2c3.RunService
+local __b8c9d0 = __a1b2c3.ReplicatedStorage
+local __e1f2g3 = __a1b2c3.Workspace
+local __h4i5j6 = __a1b2c3.UserInputService
+local __k7l8m9 = __v2w3x4.LocalPlayer
+local __n0o1p2 = __e1f2g3.CurrentCamera
+local __q3r4s5 = __k7l8m9.PlayerScripts
+local __t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
+
+-- 근접 무기 모듈 안전하게 로드 시도 (Melee 또는 Knife)
+local __meleeMod = nil
+local __meleeSuccess = pcall(function()
+    __meleeMod = require(__q3r4s5.Modules.ItemTypes.Melee)
+end)
+if not __meleeSuccess or not __meleeMod then
+    pcall(function()
+        __meleeMod = require(__q3r4s5.Modules.ItemTypes.Knife)
+    end)
+end
+
+local __w9x0y1 = require(__b8c9d0.Modules.Utility)
+
+local __z2a3b4 = setmetatable({}, {
+    __index = function(_, __c5d6e7)
+        local __f8g9h0 = __k7l8m9.Character
+        if not __f8g9h0 then return nil end
+        if __c5d6e7 == "__root" then
+            return __f8g9h0:FindFirstChild("HumanoidRootPart")
+        elseif __c5d6e7 == "__head" then
+            return __f8g9h0:FindFirstChild("Head")
+        end
+        return nil
+    end
+})
+
+__p6q7r8.__s9t0u1 = {}
+
+do
+    local __i1j2k3 = __p6q7r8.__s9t0u1
+
+    function __i1j2k3:__init()
+        self.__active = true
+        self.__target = nil
+        self.__desync = false
+        self.__conn1 = nil
+        self.__conn2 = nil
+        self.__task1 = nil
+        self.__oldfunc = nil
+        self.__oldfunc2 = nil
+        self.__meleeMethodName = nil
+        self:__setup()
+    end
+
+    function __i1j2k3:__setup()
+        self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
+            if not self.__active then return end
+            self.__target = self:__find()
+        end)
+
+        -- [1] 총기 사격 훅
+        local __l4m5n6 = __t6u7v8.StartShooting
+        self.__oldfunc = __l4m5n6
+        __t6u7v8.StartShooting = function(__o7p8q9, ...)
+            local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
+            if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
+                return unpack(__r0s1t2)
+            end
+
+            local __u3v4w5 = __r0s1t2[3]
+            if not __u3v4w5 or typeof(__u3v4w5) ~= "table" then
+                return unpack(__r0s1t2)
+            end
+
+            __r0s1t2[4] = true
+            local __x6y7z8 = self.__target
+
+            if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
+                return unpack(__r0s1t2)
+            end
+
+            if not self.__desync or self.__curr ~= __x6y7z8 then
+                self:__desync_start(__x6y7z8)
+                task.wait(0.1)
+            end
+
+            if self.__task1 then
+                task.cancel(self.__task1)
+                self.__task1 = nil
+            end
+
+            local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
+            if not __a9b0c1 then return unpack(__r0s1t2) end
+
+            local __d2e3f4 = __a9b0c1.Position
+            local __g5h6i7 = __a9b0c1.CFrame
+            local __j8k9l0 = __d2e3f4 - Vector3.new(0, 5, 0)
+            local __m1n2o3 = CFrame.lookAt(__j8k9l0, __d2e3f4)
+            local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random(), math.random(), math.random())))
+
+            __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+            __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+            __u3v4w5[utf8.char(2)] = __a9b0c1
+            __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
+
+            self.__task1 = task.delay(0.15, function()
+                self:__desync_stop()
+            end)
+
+            return unpack(__r0s1t2)
+        end
+
+        -- [2] 근접 무기 공격 훅 (안전 검사 포함)
+        if __meleeMod then
+            local __attackFunc = __meleeMod.Swing or __meleeMod.Attack
+            if __attackFunc then
+                self.__meleeMethodName = __meleeMod.Swing and "Swing" or "Attack"
+                self.__oldfunc2 = __attackFunc
+                
+                __meleeMod[self.__meleeMethodName] = function(__o7p8q9, ...)
+                    if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
+                        return self.__oldfunc2(__o7p8q9, ...)
+                    end
+
                     local __x6y7z8 = self.__target
-                    if not self.__active or not __x6y7z8 or not __x6y7z8.Character then return unpack(__r0s1t2) end
-                    if not self.__desync or self.__curr ~= __x6y7z8 then self:__desync_start(__x6y7z8) task.wait(0.1) end
-                    if self.__task1 then task.cancel(self.__task1) self.__task1 = nil end
-                    local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
-                    if not __a9b0c1 then return unpack(__r0s1t2) end
-                    local __d2e3f4 = __a9b0c1.Position
-                    local __g5h6i7 = __a9b0c1.CFrame
-                    local __j8k9l0 = __d2e3f4 - Vector3.new(0, 5, 0)
-                    local __m1n2o3 = CFrame.lookAt(__j8k9l0, __d2e3f4)
-                    local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random(), math.random(), math.random())))
-                    __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
-                    __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
-                    __u3v4w5[utf8.char(2)] = __a9b0c1
-                    __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
-                    self.__task1 = task.delay(0.15, function() self:__desync_stop() end)
-                    return unpack(__r0s1t2)
+                    if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
+                        return self.__oldfunc2(__o7p8q9, ...)
+                    end
+
+                    if not self.__desync or self.__curr ~= __x6y7z8 then
+                        self:__desync_start(__x6y7z8)
+                    end
+
+                    if self.__task1 then
+                        task.cancel(self.__task1)
+                        self.__task1 = nil
+                    end
+
+                    self.__task1 = task.delay(0.15, function()
+                        self:__desync_stop()
+                    end)
+
+                    return self.__oldfunc2(__o7p8q9, ...)
                 end
             end
-            function __i1j2k3:__find() -- 생략된 코드 포함 (위와 동일한 로직 적용)
-                local myChar = __k7l8m9.Character
-                if not myChar then return nil end
-                local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-                if not myRoot then return nil end
-                local closest = nil
-                local closestDist = math.huge
-                for _, player in next, __v2w3x4:GetPlayers() do
-                    if player == __k7l8m9 or player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
-                    local char = player.Character
-                    if not char then continue end
-                    local root = char:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        local dist = (myRoot.Position - root.Position).Magnitude
-                        if dist < closestDist then closestDist = dist closest = player end
+        end
+    end
+
+    function __i1j2k3:__find()
+        local myChar = __k7l8m9.Character
+        if not myChar then return nil end
+        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return nil end
+       
+        local closest = nil
+        local closestDist = math.huge
+        local MAX_DISTANCE = 99999999
+
+        for _, player in next, __v2w3x4:GetPlayers() do
+            if player == __k7l8m9 then continue end
+            if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
+           
+            local char = player.Character
+            if not char then continue end
+
+            local root = char:FindFirstChild("HumanoidRootPart")
+            local head = char:FindFirstChild("Head")
+            local hum = char:FindFirstChildWhichIsA("Humanoid")
+            
+            if not (root and head and hum and hum.Health > 0) then continue end
+           
+            local dist = (myRoot.Position - root.Position).Magnitude
+            
+            if dist > MAX_DISTANCE then continue end
+            
+            if dist < closestDist then
+                closestDist = dist
+                closest = player
+            end
+        end
+        
+        return closest
+    end
+
+    function __i1j2k3:__desync_start(__c3d4e5)
+        if self.__conn2 then self.__conn2:Disconnect() end
+        self.__desync = true
+        self.__curr = __c3d4e5
+
+        self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
+            if not self.__desync then return end
+            local __f6g7h8 = __z2a3b4.__root
+            if not __f6g7h8 then return end
+
+            local __i9j0k1 = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
+            if not __i9j0k1 then
+                self:__desync_stop()
+                return
+            end
+
+            local __l2m3n4 = __f6g7h8.CFrame
+            local __o5p6q7 = __f6g7h8.Velocity
+            local __r8s9t0 = __f6g7h8.RotVelocity
+
+            __f6g7h8.CFrame = __i9j0k1.CFrame * CFrame.new(0, -5, 0)
+
+            __y5z6a7:BindToRenderStep("__restore", 101, function()
+                __f6g7h8.CFrame = __l2m3n4
+                __f6g7h8.Velocity = __o5p6q7
+                __f6g7h8.RotVelocity = __r8s9t0
+                __y5z6a7:UnbindFromRenderStep("__restore")
+            end)
+        end)
+    end
+
+    function __i1j2k3:__desync_stop()
+        self.__desync = false
+        self.__curr = nil
+        if self.__conn2 then
+            self.__conn2:Disconnect()
+            self.__conn2 = nil
+        end
+    end
+
+    function __i1j2k3:Shutdown()
+        self.__active = false
+        if self.__conn1 then self.__conn1:Disconnect() end
+        if self.__conn2 then self.__conn2:Disconnect() end
+        if self.__task1 then task.cancel(self.__task1) end
+        if self.__oldfunc then
+            __t6u7v8.StartShooting = self.__oldfunc
+        end
+        if self.__oldfunc2 and __meleeMod and self.__meleeMethodName then
+            __meleeMod[self.__meleeMethodName] = self.__oldfunc2
+        end
+    end
+
+    __i1j2k3:__init()
+end
+]
+        elseif _G.RageMode == "Melee" then
+            -- [local __a1b2c3 = setmetatable({}, {
+    __index = function(__d4e5f6, __g7h8i9)
+        local __j0k1l2, __m3n4o5 = pcall(function()
+            return game:GetService(__g7h8i9)
+        end)
+        if __m3n4o5 then
+            return cloneref(__m3n4o5)
+        end
+        return nil
+    end
+})
+
+local __p6q7r8 = getgenv()
+if __p6q7r8.__s9t0u1 then
+    __p6q7r8.__s9t0u1:Shutdown()
+end
+
+local __v2w3x4 = __a1b2c3.Players
+local __y5z6a7 = __a1b2c3.RunService
+local __b8c9d0 = __a1b2c3.ReplicatedStorage
+local __e1f2g3 = __a1b2c3.Workspace
+local __h4i5j6 = __a1b2c3.UserInputService
+local __k7l8m9 = __v2w3x4.LocalPlayer
+local __n0o1p2 = __e1f2g3.CurrentCamera
+local __q3r4s5 = __k7l8m9.PlayerScripts
+local __t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
+local __w9x0y1 = require(__b8c9d0.Modules.Utility)
+
+local __z2a3b4 = setmetatable({}, {
+    __index = function(_, __c5d6e7)
+        local __f8g9h0 = __k7l8m9.Character
+        if not __f8g9h0 then return nil end
+        if __c5d6e7 == "__root" then
+            return __f8g9h0:FindFirstChild("HumanoidRootPart")
+        elseif __c5d6e7 == "__head" then
+            return __f8g9h0:FindFirstChild("Head")
+        end
+        return nil
+    end
+})
+
+__p6q7r8.__s9t0u1 = {}
+
+do
+    local __i1j2k3 = __p6q7r8.__s9t0u1
+
+    function __i1j2k3:__init()
+        self.__active = true
+        self.__target = nil
+        self.__desync = false
+        self.__conn1 = nil
+        self.__conn2 = nil
+        self.__task1 = nil
+        self.__oldfunc = nil
+        self.__oldMeleeFuncs = {} -- 근접 무기 백업용 테이블
+        self:__setup()
+    end
+
+    function __i1j2k3:__setup()
+        self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
+            if not self.__active then return end
+            self.__target = self:__find()
+        end)
+
+        -- [1] 기존 총기 사격 훅 (유지)
+        local __l4m5n6 = __t6u7v8.StartShooting
+        self.__oldfunc = __l4m5n6
+        __t6u7v8.StartShooting = function(__o7p8q9, ...)
+            local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
+            if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
+                return unpack(__r0s1t2)
+            end
+
+            local __u3v4w5 = __r0s1t2[3]
+            if not __u3v4w5 or typeof(__u3v4w5) ~= "table" then
+                return unpack(__r0s1t2)
+            end
+
+            __r0s1t2[4] = true
+            local __x6y7z8 = self.__target
+
+            if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
+                return unpack(__r0s1t2)
+            end
+
+            if not self.__desync or self.__curr ~= __x6y7z8 then
+                self:__desync_start(__x6y7z8)
+                task.wait(0.1)
+            end
+
+            if self.__task1 then
+                task.cancel(self.__task1)
+                self.__task1 = nil
+            end
+
+            local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
+            if not __a9b0c1 then return unpack(__r0s1t2) end
+
+            local __d2e3f4 = __a9b0c1.Position
+            local __g5h6i7 = __a9b0c1.CFrame
+            local __j8k9l0 = __d2e3f4 - Vector3.new(0, 5, 0)
+            local __m1n2o3 = CFrame.lookAt(__j8k9l0, __d2e3f4)
+            local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random(), math.random(), math.random())))
+
+            __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+            __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+            __u3v4w5[utf8.char(2)] = __a9b0c1
+            __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
+
+            self.__task1 = task.delay(0.15, function()
+                self:__desync_stop()
+            end)
+
+            return unpack(__r0s1t2)
+        end
+
+        -- [2] 모든 무기 모듈 자동 탐색 및 근접 무기 공격 훅 (새로 추가됨)
+        for _, child in ipairs(__q3r4s5.Modules.ItemTypes:GetChildren()) do
+            if child:IsA("ModuleScript") and child.Name ~= "Gun" then
+                local success, mod = pcall(require, child)
+                if success and typeof(mod) == "table" then
+                    -- 예상되는 모든 공격/휘두르기 함수 이름 체크
+                    local targetMethods = {"StartShooting", "Swing", "Attack", "Slash", "Activate", "Fire"}
+                    for _, methodName in ipairs(targetMethods) do
+                        local oldFunc = mod[methodName]
+                        if typeof(oldFunc) == "function" then
+                            -- 원본 함수 백업
+                            table.insert(self.__oldMeleeFuncs, {mod = mod, name = methodName, func = oldFunc})
+                            
+                            -- 공격 함수 가로채기
+                            mod[methodName] = function(__o7p8q9, ...)
+                                if typeof(__o7p8q9) == "table" and __o7p8q9.ClientFighter and not __o7p8q9.ClientFighter.IsLocalPlayer then
+                                    return oldFunc(__o7p8q9, ...)
+                                end
+
+                                local __x6y7z8 = self.__target
+                                if self.__active and __x6y7z8 and __x6y7z8.Character then
+                                    if not self.__desync or self.__curr ~= __x6y7z8 then
+                                        self:__desync_start(__x6y7z8)
+                                    end
+
+                                    if self.__task1 then
+                                        task.cancel(self.__task1)
+                                        self.__task1 = nil
+                                    end
+
+                                    self.__task1 = task.delay(0.15, function()
+                                        self:__desync_stop()
+                                    end)
+                                end
+
+                                return oldFunc(__o7p8q9, ...)
+                            end
+                        end
                     end
                 end
-                return closest
             end
-            function __i1j2k3:__desync_start(__c3d4e5) if self.__conn2 then self.__conn2:Disconnect() end self.__desync = true self.__curr = __c3d4e5 self.__conn2 = __y5z6a7.Heartbeat:Connect(function() if not self.__desync then return end local __f6g7h8 = __z2a3b4.__root if not __f6g7h8 then return end local __i9j0k1 = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart") if not __i9j0k1 then self:__desync_stop() return end local __l2m3n4 = __f6g7h8.CFrame local __o5p6q7 = __f6g7h8.Velocity local __r8s9t0 = __f6g7h8.RotVelocity __f6g7h8.CFrame = __i9j0k1.CFrame * CFrame.new(0, -5, 0) __y5z6a7:BindToRenderStep("__restore", 101, function() __f6g7h8.CFrame = __l2m3n4 __f6g7h8.Velocity = __o5p6q7 __f6g7h8.RotVelocity = __r8s9t0 __y5z6a7:UnbindFromRenderStep("__restore") end) end) end
-            function __i1j2k3:__desync_stop() self.__desync = false self.__curr = nil if self.__conn2 then self.__conn2:Disconnect() self.__conn2 = nil end end
-            function __i1j2k3:Shutdown() self.__active = false if self.__conn1 then self.__conn1:Disconnect() end if self.__conn2 then self.__conn2:Disconnect() end if self.__task1 then task.cancel(self.__task1) end if self.__oldfunc then __t6u7v8.StartShooting = self.__oldfunc end end
-            __i1j2k3:__init()
         end
     end
-end)
 
-_G.AddToggle(RageSection, "Melee Mode", false, function(state)
-    if state then
-        _G.RageMode = "Melee"
-        -- [Melee 코드 삽입 - 생략되었으나 요청대로 추가됨]
-    end
-end)
+    function __i1j2k3:__find()
+        local myChar = __k7l8m9.Character
+        if not myChar then return nil end
+        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return nil end
+       
+        local closest = nil
+        local closestDist = math.huge
+        local MAX_DISTANCE = 99999999
 
--- Emote 로직
-local EmoteSection = _G.AddSection(Tabs["rage bot"].Left, "Emote Loop")
-_G.AddToggle(EmoteSection, "Enable Emote", false, function(state)
-    if state then
-        local animid = "92281817840531"
-        local anim = Instance.new("Animation")
-        anim.AnimationId = "rbxassetid://" .. animid
-        local function playAnim(char)
-            local Hum = char:FindFirstChildWhichIsA("Humanoid")
-            local track = Hum:LoadAnimation(anim)
-            track:Play()
-            track:AdjustSpeed(99999)
+        for _, player in next, __v2w3x4:GetPlayers() do
+            if player == __k7l8m9 then continue end
+            if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
+           
+            local char = player.Character
+            if not char then continue end
+
+            local root = char:FindFirstChild("HumanoidRootPart")
+            local head = char:FindFirstChild("Head")
+            local hum = char:FindFirstChildWhichIsA("Humanoid")
+            
+            if not (root and head and hum and hum.Health > 0) then continue end
+           
+            local dist = (myRoot.Position - root.Position).Magnitude
+            
+            if dist > MAX_DISTANCE then continue end
+            
+            if dist < closestDist then
+                closestDist = dist
+                closest = player
+            end
         end
-        LocalPlayer.CharacterAdded:Connect(playAnim)
-        if LocalPlayer.Character then playAnim(LocalPlayer.Character) end
+        
+        return closest
+    end
+
+    function __i1j2k3:__desync_start(__c3d4e5)
+        if self.__conn2 then self.__conn2:Disconnect() end
+        self.__desync = true
+        self.__curr = __c3d4e5
+
+        self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
+            if not self.__desync then return end
+            local __f6g7h8 = __z2a3b4.__root
+            if not __f6g7h8 then return end
+
+            local __i9j0k1 = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
+            if not __i9j0k1 then
+                self:__desync_stop()
+                return
+            end
+
+            local __l2m3n4 = __f6g7h8.CFrame
+            local __o5p6q7 = __f6g7h8.Velocity
+            local __r8s9t0 = __f6g7h8.RotVelocity
+
+            __f6g7h8.CFrame = __i9j0k1.CFrame * CFrame.new(0, -5, 0)
+
+            __y5z6a7:BindToRenderStep("__restore", 101, function()
+                __f6g7h8.CFrame = __l2m3n4
+                __f6g7h8.Velocity = __o5p6q7
+                __f6g7h8.RotVelocity = __r8s9t0
+                __y5z6a7:UnbindFromRenderStep("__restore")
+            end)
+        end)
+    end
+
+    function __i1j2k3:__desync_stop()
+        self.__desync = false
+        self.__curr = nil
+        if self.__conn2 then
+            self.__conn2:Disconnect()
+            self.__conn2 = nil
+        end
+    end
+
+    function __i1j2k3:Shutdown()
+        self.__active = false
+        if self.__conn1 then self.__conn1:Disconnect() end
+        if self.__conn2 then self.__conn2:Disconnect() end
+        if self.__task1 then task.cancel(self.__task1) end
+        if self.__oldfunc then
+            __t6u7v8.StartShooting = self.__oldfunc
+        end
+        if self.__oldMeleeFuncs then
+            for _, data in ipairs(self.__oldMeleeFuncs) do
+                pcall(function()
+                    data.mod[data.name] = data.func
+                end)
+            end
+        end
+    end
+
+    __i1j2k3:__init()
+end
+ ]
+        end
+    else
+        -- 끄기 (Shutdown 함수 호출)
+        if getgenv().__s9t0u1 then getgenv().__s9t0u1:Shutdown() end
     end
 end)
 
-    -- 레이아웃 정렬 최신화
-    if Tabs["main"].Left:FindFirstChild("UIListLayout") then
-        Tabs["main"].Left.CanvasSize = UDim2.new(0, 0, 0, Tabs["main"].Left.UIListLayout.AbsoluteContentSize.Y + 50)
+_G.AddToggle(RageSection, "Mode: Melee (OFF=Gun)", false, function(state)
+    _G.RageMode = state and "Melee" or "Gun"
+end)
+
+-- 2. MAIN 탭에 Emote 섹션 추가
+local EmoteSection = _G.AddSection(Tabs["main"].Left, "Emote")
+
+_G.AddToggle(EmoteSection, "Emote Spam", false, function(state)
+    _G.EmoteActive = state
+    if state then
+        -- [local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local function anim2track(asset_id)
+local objs = game:GetObjects(asset_id)
+for i = 1, #objs do
+if objs[i]:IsA("Animation") then
+return objs[i].AnimationId
+end
+end
+return assetid
+end
+local animid = "92281817840531"
+local speed = 99999999
+if not animid:find("rbxassetid://") then
+animid = "rbxassetid://" .. animid
+end
+animid = anim2track(animid)
+local animation = Instance.new("Animation")
+animation.AnimationId = animid
+local function playAnim(character)
+local Hum = character:FindFirstChildWhichIsA("Humanoid")
+for _, track in next, Hum:GetPlayingAnimationTracks() do
+track:Stop()
+end
+local anim = Hum:LoadAnimation(animation)
+anim.Priority = Enum.AnimationPriority.Action4
+anim:Play()
+anim:AdjustSpeed(speed)
+anim.Stopped:Connect(function()
+playAnim(character)
+end)
+end
+Player.CharacterAdded:Connect(function(character)
+character:WaitForChild("Humanoid")
+playAnim(character)
+end)
+if Player.Character then
+playAnim(Player.Character)
+end ]
     end
 end)
 
-print("[SOLAR] 모든 기능 마운트 완료!")
+-- ====================================================================
+-- 이제 위 코드 블록 내의 주석 처리된 부분에 
+-- 가지고 계신 코드 3개를 각각 그대로 붙여넣으시면 됩니다.
+-- ====================================================================
