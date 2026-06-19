@@ -1405,306 +1405,338 @@ task.spawn(function()
     end
 end)
 
-local _G = getgenv()
-if _G.SolarHubEnabled then return end
-_G.SolarHubEnabled = true
+-- ==================== ARCADE TAB ====================
 
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting")
-local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Debris = game:GetService("Debris")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-_G.CrosshairEnabled = false
-_G.CrosshairType = "Circle"
-_G.ItemESPCommon = false
-_G.ItemESPRare = false
-_G.ItemESPEpic = false
-_G.HitMarkerEnabled = false
+local LocalPlayer = Players.LocalPlayer
+local Utility = require(ReplicatedStorage.Modules.Utility)
 
-_G.Crosshairs = {
-    ["Circle"] = {type = "Circle", radius = 10, thickness = 2, color = Color3.fromRGB(0, 255, 0), pos = Vector2.new(0, 0), segments = 32},
-    ["Square"] = {type = "Square", size = 20, thickness = 2, color = Color3.fromRGB(0, 255, 0), pos = Vector2.new(0, 0)},
-    ["Dot"] = {type = "Dot", radius = 3, color = Color3.fromRGB(0, 255, 0), pos = Vector2.new(0, 0)}
-}
+-- ==================== SETTINGS ====================
+local autoHealth = true
+local autoAmmo = true
+local autoRespawn = true
+local arcadeRageBot = true   -- Arcade Rage Bot 토글
 
-local currentCrosshairObject = nil
+-- ==================== ANTI VOID ====================
+Workspace.FallenPartsDestroyHeight = -math.huge
 
-local function drawCrosshair(type)
-    if not _G.CrosshairEnabled then return end
-    if currentCrosshairObject then currentCrosshairObject:Remove() currentCrosshairObject = nil end
-    
-    local crosshairData = _G.Crosshairs[type]
-    local drawingObject = nil
-    
-    if type == "Circle" then
-        drawingObject = Drawing.new("Circle")
-        for k, v in pairs(crosshairData) do if k ~= "type" then drawingObject[k] = v end end
-        drawingObject.Position = Vector2.new(Workspace.CurrentCamera.ViewportSize.X / 2, Workspace.CurrentCamera.ViewportSize.Y / 2)
-    elseif type == "Square" then
-        drawingObject = Drawing.new("Square")
-        for k, v in pairs(crosshairData) do if k ~= "type" then drawingObject[k] = v end end
-        drawingObject.Position = Vector2.new(Workspace.CurrentCamera.ViewportSize.X / 2 - crosshairData.size / 2, Workspace.CurrentCamera.ViewportSize.Y / 2 - crosshairData.size / 2)
-    elseif type == "Dot" then
-        drawingObject = Drawing.new("Circle")
-        for k, v in pairs(crosshairData) do if k ~= "type" then drawingObject[k] = v end end
-        drawingObject.Position = Vector2.new(Workspace.CurrentCamera.ViewportSize.X / 2, Workspace.CurrentCamera.ViewportSize.Y / 2)
-        drawingObject.Filled = true
+local function ProtectCharacter(char)
+    if not char then return end
+    local hum = char:WaitForChild("Humanoid", 5)
+    if hum then
+        hum.HealthChanged:Connect(function(hp)
+            if hp <= 0 then
+                hum.Health = 100
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if root then root.CFrame += Vector3.new(0, 150, 0) end
+            end
+        end)
     end
-    currentCrosshairObject = drawingObject
 end
 
-local function drawSkeleton(player, color)
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    local head = character:FindFirstChild("Head")
-    if not head then return end
-    local joints = {}
-    
-    for _, part in pairs(character:GetChildren()) do
-        if part:IsA("BasePart") then
-            local root = part.Name:match("(.+)Part") or part.Name
-            for _, attachment in pairs(part:GetChildren()) do
-                if attachment:IsA("Attachment") and attachment.Name:match("Joint") then
-                    table.insert(joints, {part = part, attachment = attachment})
+if LocalPlayer.Character then ProtectCharacter(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(ProtectCharacter)
+
+-- ==================== ARCADE RAGE BOT ====================
+local target = nil
+
+if arcadeRageBot then
+    -- Target Finder
+    RunService.Heartbeat:Connect(function()
+        if not arcadeRageBot then return end
+        local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return end
+
+        local closest, minDist = nil, math.huge
+        for _, plr in Players:GetPlayers() do
+            if plr == LocalPlayer then continue end
+            local tTeam = plr:GetAttribute("TeamID")
+            local mTeam = LocalPlayer:GetAttribute("TeamID")
+            if tTeam and mTeam and tTeam == mTeam then continue end
+
+            local char = plr.Character
+            if char and char:FindFirstChild("Head") and char:FindFirstChild("HumanoidRootPart") then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local dist = (myRoot.Position - char.HumanoidRootPart.Position).Magnitude
+                    if dist < minDist and dist <= 450 then
+                        minDist = dist
+                        closest = plr
+                    end
                 end
             end
         end
-    end
-    
-    for i, jointData in ipairs(joints) do
-        if i > 1 then
-            local prevJointData = joints[i - 1]
-            local startPos = Workspace.CurrentCamera:WorldToViewportPoint(jointData.attachment.WorldPosition)
-            local endPos = Workspace.CurrentCamera:WorldToViewportPoint(prevJointData.attachment.WorldPosition)
-            
-            if startPos.Z > 0 and endPos.Z > 0 then
-                local line = Drawing.new("Line")
-                line.Color = color
-                line.Thickness = 1.5
-                line.From = Vector2.new(startPos.X, startPos.Y)
-                line.To = Vector2.new(endPos.X, endPos.Y)
-                Debris:AddItem(line, 0.05)
+        target = closest
+    end)
+
+    -- 모든 무기 Silent Aim
+    local weapons = {"Gun", "Slingshot", "Bow", "Daggers"}
+    for _, name in ipairs(weapons) do
+        pcall(function()
+            local mod = require(LocalPlayer.PlayerScripts.Modules.ItemTypes[name])
+            local old = mod.StartShooting or mod.Fire
+            if old then
+                mod.StartShooting = function(obj, ...)
+                    local args = {old(obj, ...)}
+                    if target and target.Character and target.Character:FindFirstChild("Head") then
+                        local head = target.Character.Head
+                        local packet = args[3] or args[2]
+                        if packet and typeof(packet) == "table" then
+                            local pos = head.Position
+                            packet[utf8.char(0)] = Utility:EncodeCFrame(CFrame.new(pos - Vector3.new(0, 3.5, 0), pos))
+                            packet[utf8.char(2)] = head
+                        end
+                    end
+                    return unpack(args)
+                end
             end
+        end)
+    end
+
+    -- 상대 머리 위 지속 텔레포
+    RunService.Heartbeat:Connect(function()
+        if not arcadeRageBot then return end
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        local old = root.CFrame
+
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            local head = target.Character.Head
+            root.CFrame = head.CFrame * CFrame.new(0, 7, 0)
+        else
+            root.CFrame = root.CFrame * CFrame.new(math.random(-25,25), math.random(-10,20), math.random(-25,25))
         end
-    end
-    
-    local rootPart = character.HumanoidRootPart
-    local rootToHeadStart = Workspace.CurrentCamera:WorldToViewportPoint(rootPart.Position)
-    local rootToHeadEnd = Workspace.CurrentCamera:WorldToViewportPoint(head.Position)
-    if rootToHeadStart.Z > 0 and rootToHeadEnd.Z > 0 then
-        local line = Drawing.new("Line")
-        line.Color = color
-        line.Thickness = 1.5
-        line.From = Vector2.new(rootToHeadStart.X, rootToHeadStart.Y)
-        line.To = Vector2.new(rootToHeadEnd.X, rootToHeadEnd.Y)
-        Debris:AddItem(line, 0.05)
-    end
+
+        RunService:BindToRenderStep("ArcadeRestore", 101, function()
+            root.CFrame = old
+            RunService:UnbindFromRenderStep("ArcadeRestore")
+        end)
+    end)
 end
 
-local function applyFullBright() Lighting.Ambient = Color3.fromRGB(255, 255, 255) Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255) Lighting.Brightness = 2 end
-local function resetFullBright() Lighting.Ambient = Color3.fromRGB(127, 127, 127) Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127) Lighting.Brightness = 1 end
-local function applyNightMode() Lighting.TimeOfDay = "00:00:00" Lighting.Ambient = Color3.fromRGB(15, 15, 15) Lighting.OutdoorAmbient = Color3.fromRGB(15, 15, 15) end
-local function resetNightMode() Lighting.TimeOfDay = "14:00:00" resetFullBright() end
-local function applyNoFog() Lighting.FogEnd = 100000 Lighting.FogStart = 0 end
-local function resetNoFog() Lighting.FogEnd = 100 Lighting.FogStart = 0 end
+-- ==================== AUTO COLLECT ====================
+local t = 0
+local connection = RunService.RenderStepped:Connect(function(dt)
+    local character = LocalPlayer.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
-local function itemESP()
-    if not (_G.ItemESPCommon or _G.ItemESPRare or _G.ItemESPEpic) then return end
-    
-    for _, v in pairs(Workspace:GetDescendants()) do
-        if v:IsA("Model") and (v.Name:find("Weapon") or v.Name:find("Ammo") or v.Name:find("Armor") or v.Name:find("Health")) then
-            local part = v:FindFirstChild("Part") or v:FindFirstChild("Handle") or v:FindFirstChild("Mesh") or v:FindFirstChild("Base") or v:FindFirstChildOfClass("BasePart")
-            if part then
-                local position, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(part.Position)
-                if onScreen then
-                    local rarity = v:FindFirstChild("Rarity") and v.Rarity.Value or "Common"
-                    if (_G.ItemESPCommon and rarity == "Common") or (_G.ItemESPRare and rarity == "Rare") or (_G.ItemESPEpic and rarity == "Epic") then
-                        local text = Drawing.new("Text")
-                        text.Color = rarity == "Epic" and Color3.fromRGB(255, 215, 0) or rarity == "Rare" and Color3.fromRGB(0, 191, 255) or Color3.fromRGB(255, 255, 255)
-                        text.Size = 14
-                        text.Center = true
-                        text.Outline = true
-                        text.Position = Vector2.new(position.X, position.Y)
-                        text.Text = string.format("%s (%sm)", v.Name, math.floor(position.Z / 10 + 0.5))
-                        Debris:AddItem(text, 0.05)
+    t = t + dt * 8
+    local bounce = math.sin(t) * 4
+
+    for _, obj in workspace:GetChildren() do
+        if obj.Name == "_drop" and obj:IsA("BasePart") then
+            if (autoAmmo and obj:FindFirstChild("Ammo")) or (autoHealth and obj:FindFirstChild("Health")) then
+                obj.Anchored = true
+                obj.CFrame = CFrame.new(hrp.Position + Vector3.new(0, bounce, 0))
+                obj.Transparency = 1
+                for _, child in pairs(obj:GetDescendants()) do
+                    if child:IsA("BasePart") or child:IsA("UnionOperation") or child:IsA("MeshPart") or child:IsA("SpecialMesh") then
+                        pcall(function() child.Transparency = 1 end)
+                    end
+                    if child:IsA("BillboardGui") or child:IsA("SurfaceGui") or child:IsA("ParticleEmitter") or child:IsA("SelectionBox") then
+                        pcall(function() child.Enabled = false end)
                     end
                 end
             end
         end
     end
-end
-
-local function drawHitMarker(position)
-    local viewportPos = Workspace.CurrentCamera:WorldToViewportPoint(position)
-    if viewportPos.Z > 0 then
-        local dot = Drawing.new("Circle")
-        dot.Radius = 3
-        dot.Thickness = 1
-        dot.Filled = true
-        dot.Color = Color3.fromRGB(255, 0, 0)
-        dot.Position = Vector2.new(viewportPos.X, viewportPos.Y)
-        Debris:AddItem(dot, 0.5)
-        local text = Drawing.new("Text")
-        text.Size = 20
-        text.Outline = true
-        text.Center = true
-        text.Color = Color3.fromRGB(255, 0, 0)
-        text.Position = Vector2.new(viewportPos.X, viewportPos.Y - 20)
-        text.Text = "HIT"
-        Debris:AddItem(text, 0.5)
-    end
-end
-
-Workspace.DescendantAdded:Connect(function(descendant)
-    if _G.NoSmoke and descendant:IsA("Smoke") then descendant:Destroy() end
 end)
 
-for _, descendant in pairs(Workspace:GetDescendants()) do
-    if _G.NoSmoke and descendant:IsA("Smoke") then descendant:Destroy() end
-end
+-- ==================== UI (기존 그대로) ====================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoCollectBoostersFFA"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = LocalPlayer.PlayerGui
 
-local bulletTracers = {}
-local function createBulletTracer(origin, direction, length)
-    local attachment0 = Instance.new("Attachment")
-    attachment0.Position = origin
-    attachment0.Parent = Workspace.Terrain
-    local attachment1 = Instance.new("Attachment")
-    attachment1.Position = origin + direction.Unit * length
-    attachment1.Parent = Workspace.Terrain
-    
-    local line = Drawing.new("Line")
-    line.Color = Color3.fromRGB(0, 255, 0)
-    line.Thickness = 2
-    table.insert(bulletTracers, {line = line, attachment0 = attachment0, attachment1 = attachment1})
-end
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 280, 0, 0)
+mainFrame.Position = UDim2.new(0, 20, 0, 50)
+mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
 
-game:GetService("RunService").RenderStepped:Connect(function()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            if _G.Skeleton then drawSkeleton(player, player.TeamColor.Color) end
-            if _G.TracerLines then
-                local humanoidRootPart = player.Character.HumanoidRootPart
-                local position, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(humanoidRootPart.Position)
-                if onScreen then
-                    local tracerLine = Drawing.new("Line")
-                    tracerLine.Color = player.TeamColor.Color
-                    tracerLine.Thickness = 1.5
-                    tracerLine.From = Vector2.new(Workspace.CurrentCamera.ViewportSize.X / 2, Workspace.CurrentCamera.ViewportSize.Y / 2)
-                    tracerLine.To = Vector2.new(position.X, position.Y)
-                    Debris:AddItem(tracerLine, 0.05)
-                end
-            end
-            if _G.Health and player.Character:FindFirstChild("Humanoid") then
-                local humanoidRootPart = player.Character.HumanoidRootPart
-                local position, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(humanoidRootPart.Position)
-                if onScreen then
-                    local healthBar = Drawing.new("Line")
-                    healthBar.Color = Color3.fromRGB(0, 255, 0)
-                    healthBar.Thickness = 2
-                    healthBar.From = Vector2.new(position.X - 20, position.Y + 20)
-                    healthBar.To = Vector2.new(position.X - 20 + player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth * 40, position.Y + 20)
-                    Debris:AddItem(healthBar, 0.05)
-                end
-            end
-            if _G.TeamCheck and player.Team ~= Players.LocalPlayer.Team then player.Character:Remove() end
-        end
-    end
-    
-    if _G.CrosshairEnabled then
-        if not currentCrosshairObject or not UserInputService:IsMouseButtonPressed(Enum.MouseButton.Right) then
-            drawCrosshair(_G.CrosshairType)
-        elseif currentCrosshairObject then
-            currentCrosshairObject:Remove()
-            currentCrosshairObject = nil
-        end
-    end
-    
-    itemESP()
-    
-    for i, tracerData in ipairs(bulletTracers) do
-        local positionA, onScreenA = Workspace.CurrentCamera:WorldToViewportPoint(tracerData.attachment0.WorldPosition)
-        local positionB, onScreenB = Workspace.CurrentCamera:WorldToViewportPoint(tracerData.attachment1.WorldPosition)
-        if onScreenA and onScreenB then
-            tracerData.line.From = Vector2.new(positionA.X, positionA.Y)
-            tracerData.line.To = Vector2.new(positionB.X, positionB.Y)
-        else
-            tracerData.line.Visible = false
-        end
-        Debris:AddItem(tracerData.attachment0, 0.5)
-        Debris:AddItem(tracerData.attachment1, 0.5)
-        Debris:AddItem(tracerData.line, 0.5)
-        table.remove(bulletTracers, i)
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 6)
+mainCorner.Parent = mainFrame
+
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+titleBar.BorderSizePixel = 0
+titleBar.ZIndex = 2
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 6)
+titleCorner.Parent = titleBar
+
+local titlePatch = Instance.new("Frame")
+titlePatch.Size = UDim2.new(1, 0, 0, 6)
+titlePatch.Position = UDim2.new(0, 0, 1, -6)
+titlePatch.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+titlePatch.BorderSizePixel = 0
+titlePatch.ZIndex = 2
+titlePatch.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -90, 1, 0)
+titleLabel.Position = UDim2.new(0, 12, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Arcade Tab"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 13
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.ZIndex = 3
+titleLabel.Parent = titleBar
+
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0, 30, 0, 26)
+minBtn.Position = UDim2.new(1, -66, 0.5, -13)
+minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+minBtn.Text = "-"
+minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextSize = 16
+minBtn.BorderSizePixel = 0
+minBtn.ZIndex = 3
+minBtn.Parent = titleBar
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 26)
+closeBtn.Position = UDim2.new(1, -32, 0.5, -13)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 13
+closeBtn.BorderSizePixel = 0
+closeBtn.ZIndex = 3
+closeBtn.Parent = titleBar
+
+-- UI 드래그 기능 (기존 그대로)
+local dragging, dragStart, startPos
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
     end
 end)
 
-Players.LocalPlayer.Character.Humanoid.Died:Connect(function()
-    _G.SolarHubEnabled = false
-    if currentCrosshairObject then currentCrosshairObject:Remove() currentCrosshairObject = nil end
-    resetFullBright()
-    resetNightMode()
-    resetNoFog()
-    CoreGui.SolarConfigPanel:Destroy()
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
 end)
 
-_G.SolarLoad()
-_G.OnSolarConfigLoaded = function()
-    _G.ESP = _G.SolarSettings.ESP
-    _G.BOXES = _G.SolarSettings.Boxes
-    _G.NAMES = _G.SolarSettings.Names
-    _G.DISTANCE = _G.SolarSettings.Distance
-    _G.TeamCheck = _G.SolarSettings.TeamCheck
-    _G.DistanceFilter = _G.SolarSettings.DistanceFilter
-    _G.Chams = _G.SolarSettings.Chams
-    _G.TracerLines = _G.SolarSettings.TracerLines
-    _G.Skeleton = _G.SolarSettings.Skeleton
-    _G.Health = _G.SolarSettings.Health
-    _G.CrosshairEnabled = _G.SolarSettings.CrosshairEnabled
-    _G.CrosshairType = _G.SolarSettings.CrosshairType
-    _G.FullBright = _G.SolarSettings.FullBright
-    _G.NightMode = _G.SolarSettings.NightMode
-    _G.NoFog = _G.SolarSettings.NoFog
-    _G.NoSmoke = _G.SolarSettings.NoSmoke
-    _G.ItemESPCommon = _G.SolarSettings.ItemESPCommon
-    _G.ItemESPRare = _G.SolarSettings.ItemESPRare
-    _G.ItemESPEpic = _G.SolarSettings.ItemESPEpic
-    _G.BulletTracers = _G.SolarSettings.BulletTracers
-    _G.HitMarkerEnabled = _G.SolarSettings.HitMarkerEnabled
-    if _G.FullBright then applyFullBright() else resetFullBright() end
-    if _G.NightMode then applyNightMode() else resetNightMode() end
-    if _G.NoFog then applyNoFog() else resetNoFog() end
-    if _G.CrosshairEnabled then drawCrosshair(_G.CrosshairType) end
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, -24, 0, 0)
+content.Position = UDim2.new(0, 12, 0, 48)
+content.BackgroundTransparency = 1
+content.Parent = mainFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 7)
+listLayout.FillDirection = Enum.FillDirection.Vertical
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = content
+
+local function updateSize()
+    local h = listLayout.AbsoluteContentSize.Y
+    content.Size = UDim2.new(1, -24, 0, h)
+    mainFrame.Size = UDim2.new(0, 280, 0, h + 62)
 end
-if _G.SolarSettings.AutoLoad then _G.OnSolarConfigLoaded() end
 
-local TabESP = Tabs["esp"].Left
-local TabWorld = Tabs["world"].Left
-local ESPSettingsSection = _G.AddSection(TabESP, "ESP Settings")
-local WorldHacksSection = _G.AddSection(TabWorld, "World Hacks")
-local LootHacksSection = _G.AddSection(TabWorld, "Item / Loot ESP Hacks")
-local CombatHacksSection = _G.AddSection(TabWorld, "Combat Visual Hacks")
-local SkeletonSection = _G.AddSection(TabESP, "Skeleton Visualization")
+listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSize)
 
-_G.AddToggle(SkeletonSection, "Skeleton Visualization", _G.Skeleton, function(state) _G.Skeleton = state _G.SolarSettings.Skeleton = state _G.SolarSave() end)
-_G.AddToggle(WorldHacksSection, "Full Bright", _G.FullBright, function(state) _G.FullBright = state if state then applyFullBright() else resetFullBright() end _G.SolarSettings.FullBright = state _G.SolarSave() end)
-_G.AddToggle(WorldHacksSection, "Night Mode", _G.NightMode, function(state) _G.NightMode = state if state then applyNightMode() else resetNightMode() end _G.SolarSettings.NightMode = state _G.SolarSave() end)
-_G.AddToggle(WorldHacksSection, "No Fog", _G.NoFog, function(state) _G.NoFog = state if state then applyNoFog() else resetNoFog() end _G.SolarSettings.NoFog = state _G.SolarSave() end)
-_G.AddToggle(WorldHacksSection, "No Smoke", _G.NoSmoke, function(state) _G.NoSmoke = state _G.SolarSettings.NoSmoke = state _G.SolarSave() end)
-_G.AddToggle(LootHacksSection, "Item Common", _G.ItemESPCommon, function(state) _G.ItemESPCommon = state _G.SolarSettings.ItemESPCommon = state _G.SolarSave() end)
-_G.AddToggle(LootHacksSection, "Item Rare", _G.ItemESPRare, function(state) _G.ItemESPRare = state _G.SolarSettings.ItemESPRare = state _G.SolarSave() end)
-_G.AddToggle(LootHacksSection, "Item Epic", _G.ItemESPEpic, function(state) _G.ItemESPEpic = state _G.SolarSettings.ItemESPEpic = state _G.SolarSave() end)
-_G.AddToggle(CombatHacksSection, "Bullet Tracers", _G.BulletTracers, function(state) _G.BulletTracers = state _G.SolarSettings.BulletTracers = state _G.SolarSave() end)
-_G.AddToggle(CombatHacksSection, "Hit Marker", _G.HitMarkerEnabled, function(state) _G.HitMarkerEnabled = state _G.SolarSettings.HitMarkerEnabled = state _G.SolarSave() end)
-_G.AddToggle(ESPSettingsSection, "Boxes", _G.BOXES, function(state) _G.BOXES = state _G.SolarSettings.Boxes = state _G.SolarSave() end)
-_G.AddToggle(ESPSettingsSection, "Names", _G.NAMES, function(state) _G.NAMES = state _G.SolarSettings.Names = state _G.SolarSave() end)
-_G.AddToggle(ESPSettingsSection, "Distance", _G.DISTANCE, function(state) _G.DISTANCE = state _G.SolarSettings.Distance = state _G.SolarSave() end)
-_G.AddToggle(ESPSettingsSection, "Health", _G.Health, function(state) _G.Health = state _G.SolarSettings.Health = state _G.SolarSave() end)
-_G.AddToggle(ESPSettingsSection, "Team Check", _G.TeamCheck, function(state) _G.TeamCheck = state _G.SolarSettings.TeamCheck = state _G.SolarSave() end)
-_G.AddSlider(ESPSettingsSection, "Distance Filter", 100, 2000, _G.DistanceFilter, 100, function(value) _G.DistanceFilter = value _G.SolarSettings.DistanceFilter = value _G.SolarSave() end)
-local CrosshairSection = _G.AddSection(TabESP, "Custom Crosshair")
-_G.AddToggle(CrosshairSection, "Custom Crosshair", _G.CrosshairEnabled, function(state) _G.CrosshairEnabled = state if state then drawCrosshair(_G.CrosshairType) elseif currentCrosshairObject then currentCrosshairObject:Remove() currentCrosshairObject = nil end _G.SolarSettings.CrosshairEnabled = state _G.SolarSave() end)
-local crosshairTypes = {"Circle", "Square", "Dot"}
-_G.AddDropdown(CrosshairSection, "Crosshair Type", crosshairTypes, _G.CrosshairType, function(selected) _G.CrosshairType = selected if _G.CrosshairEnabled then drawCrosshair(selected) end _G.SolarSettings.CrosshairType = selected _G.SolarSave() end)
-_G.AddToggle(TabESP, "Tracer Lines", _G.TracerLines, function(state) _G.TracerLines = state _G.SolarSettings.TracerLines = state _G.SolarSave() end)
-_G.AddToggle(TabESP, "Chams", _G.Chams, function(state) _G.Chams = state _G.SolarSettings.Chams = state _G.SolarSave() end)
+local orderIndex = 0
+local function nextOrder()
+    orderIndex = orderIndex + 1
+    return orderIndex
+end
+
+local function createToggle(name, default, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 42)
+    row.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+    row.BorderSizePixel = 0
+    row.LayoutOrder = nextOrder()
+    row.Parent = content
+
+    local rowCorner = Instance.new("UICorner")
+    rowCorner.CornerRadius = UDim.new(0, 6)
+    rowCorner.Parent = row
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    nameLabel.Position = UDim2.new(0, 12, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = name
+    nameLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    nameLabel.Font = Enum.Font.Gotham
+    nameLabel.TextSize = 15
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = row
+
+    local toggleBg = Instance.new("Frame")
+    toggleBg.Size = UDim2.new(0, 44, 0, 22)
+    toggleBg.Position = UDim2.new(1, -54, 0.5, -11)
+    toggleBg.BackgroundColor3 = default and Color3.fromRGB(0, 162, 255) or Color3.fromRGB(55, 55, 55)
+    toggleBg.BorderSizePixel = 0
+    toggleBg.Parent = row
+
+    local bgCorner = Instance.new("UICorner")
+    bgCorner.CornerRadius = UDim.new(1, 0)
+    bgCorner.Parent = toggleBg
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 16, 0, 16)
+    knob.Position = default and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    knob.BorderSizePixel = 0
+    knob.Parent = toggleBg
+
+    local knobCorner = Instance.new("UICorner")
+    knobCorner.CornerRadius = UDim.new(1, 0)
+    knobCorner.Parent = knob
+
+    local state = default
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    btn.Parent = row
+
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        toggleBg.BackgroundColor3 = state and Color3.fromRGB(0, 162, 255) or Color3.fromRGB(55, 55, 55)
+        knob.Position = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+        callback(state)
+    end)
+end
+
+createToggle("Auto Health", true, function(val) autoHealth = val end)
+createToggle("Auto Ammo", true, function(val) autoAmmo = val end)
+createToggle("Auto Respawn", true, function(val) autoRespawn = val end)
+createToggle("Arcade Rage Bot", true, function(val) arcadeRageBot = val end)
+
+updateSize()
+
+print("✅ Arcade Tab 추가 완료 (Auto Health | Auto Ammo | Auto Respawn | Arcade Rage Bot)")
