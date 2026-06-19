@@ -1405,7 +1405,7 @@ task.spawn(function()
     end
 end)
 
--- ==================== ARCADE SECTION (MISC 탭에 붙이세요) ====================
+-- ==================== ARCADE SECTION (MISC 탭에 추가) ====================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -1564,4 +1564,33 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-print("✅ Arcade Section (Auto Health, Auto Ammo, Auto Respawn, Arcade Rage Bot) 추가 완료")
+-- ==================== MISC 탭에 ARCADE 섹션 추가 ====================
+task.spawn(function()
+    repeat task.wait(0.3) until Tabs and Tabs["misc"] and Tabs["misc"].Left
+
+    local ArcadeSection = _G.AddSection(Tabs["misc"].Left, "arcade")
+
+    _G.AddToggle(ArcadeSection, "arcade rage bot", true, function(state)
+        arcadeRageBot = state
+    end)
+
+    _G.AddToggle(ArcadeSection, "auto health", true, function(state)
+        autoHealth = state
+    end)
+
+    _G.AddToggle(ArcadeSection, "auto ammo", true, function(state)
+        autoAmmo = state
+    end)
+
+    _G.AddToggle(ArcadeSection, "auto respawn", true, function(state)
+        autoRespawn = state
+    end)
+
+    -- 레이아웃 갱신
+    local scroll = Tabs["misc"].Left
+    if scroll and scroll:FindFirstChild("UIListLayout") then
+        scroll.CanvasSize = UDim2.new(0, 0, 0, scroll.UIListLayout.AbsoluteContentSize.Y + 30)
+    end
+end)
+
+print("✅ ARCADE SECTION (4개 기능) MISC 탭에 추가 완료")
