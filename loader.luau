@@ -1407,6 +1407,9 @@ end)
 
 local ChangerSection = _G.AddSection(Tabs["character"].Right, "Changer")
 
+local addBox = _G.AddTextBox or _G.AddInput or _G.CreateTextBox or _G.CreateInput
+local addDrop = _G.AddDropdown or _G.CreateDropdown or _G.Dropdown
+
 local fakeName = ""
 local nameToggle = false
 _G.AddToggle(ChangerSection, "Name Changer", false, function(state)
@@ -1428,9 +1431,11 @@ _G.AddToggle(ChangerSection, "Name Changer", false, function(state)
     end
 end)
 
-_G.AddTextBox(ChangerSection, "Desired Name", "원하는 이름 입력", function(value)
-    fakeName = value
-end)
+if addBox then
+    addBox(ChangerSection, "Desired Name", "원하는 이름 입력", function(value)
+        fakeName = value
+    end)
+end
 
 local fakeLevel = ""
 local levelToggle = false
@@ -1457,23 +1462,27 @@ _G.AddToggle(ChangerSection, "Level Changer", false, function(state)
     end
 end)
 
-_G.AddTextBox(ChangerSection, "Desired Level", "원하는 레벨 입력", function(value)
-    fakeLevel = value
-end)
+if addBox then
+    addBox(ChangerSection, "Desired Level", "원하는 레벨 입력", function(value)
+        fakeLevel = value
+    end)
+end
 
-_G.AddDropdown(ChangerSection, "Rank Changer", {"Bronze", "Silver", "Gold", "Diamond", "Master", "Top 100"}, function(selected)
-    local lp = game:GetService("Players").LocalPlayer
-    if lp:FindFirstChild("PlayerGui") then
-        for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
-            if ui:IsA("TextLabel") or ui:IsA("TextButton") then
-                local name = ui.Name:lower()
-                if name:find("tier") or name:find("rankname") then
-                    ui.Text = selected
+if addDrop then
+    addDrop(ChangerSection, "Rank Changer", {"Bronze", "Silver", "Gold", "Diamond", "Master", "Top 100"}, function(selected)
+        local lp = game:GetService("Players").LocalPlayer
+        if lp:FindFirstChild("PlayerGui") then
+            for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
+                if ui:IsA("TextLabel") or ui:IsA("TextButton") then
+                    local name = ui.Name:lower()
+                    if name:find("tier") or name:find("rankname") then
+                        ui.Text = selected
+                    end
                 end
             end
         end
-    end
-end)
+    end)
+end
 
 local fakeStreak = ""
 local streakToggle = false
@@ -1500,6 +1509,8 @@ _G.AddToggle(ChangerSection, "Win Streak Changer", false, function(state)
     end
 end)
 
-_G.AddTextBox(ChangerSection, "Desired Win Streak", "원하는 연승 입력", function(value)
-    fakeStreak = value
-end)
+if addBox then
+    addBox(ChangerSection, "Desired Win Streak", "원하는 연승 입력", function(value)
+        fakeStreak = value
+    end)
+end
