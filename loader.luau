@@ -1405,32 +1405,63 @@ task.spawn(function()
     end
 end)
 
-local CharSection = _G.AddSection(Tabs["character"].Left, "Local Stats")
+local ChangerSection = _G.AddSection(Tabs["character"].Right, "Changer")
 
-_G.AddTextBox(CharSection, "Set Fake Level", "레벨을 입력하세요", function(value)
-    local newLevel = tonumber(value) or value
-    local lp = game:GetService("Players").LocalPlayer
-
-    if lp:FindFirstChild("leaderstats") then
-        local lvlStat = lp.leaderstats:FindFirstChild("Level") or lp.leaderstats:FindFirstChild("level")
-        if lvlStat then
-            lvlStat.Value = newLevel
+local fakeName = ""
+local nameToggle = false
+_G.AddToggle(ChangerSection, "Name Changer", false, function(state)
+    nameToggle = state
+    if nameToggle and fakeName ~= "" then
+        local lp = game:GetService("Players").LocalPlayer
+        if lp.Character and lp.Character:FindFirstChild("Humanoid") then
+            lp.Character.Humanoid.DisplayName = fakeName
         end
-    end
-
-    if lp:FindFirstChild("PlayerGui") then
-        for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
-            if ui:IsA("TextLabel") or ui:IsA("TextButton") then
-                local name = ui.Name:lower()
-                if name:find("level") or name:find("lvl") then
-                    ui.Text = tostring(newLevel)
+        if lp:FindFirstChild("PlayerGui") then
+            for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
+                if ui:IsA("TextLabel") or ui:IsA("TextButton") then
+                    if ui.Text == lp.Name or ui.Text == lp.DisplayName then
+                        ui.Text = fakeName
+                    end
                 end
             end
         end
     end
 end)
 
-_G.AddDropdown(CharSection, "Rank Tier", {"Bronze", "Silver", "Gold", "Diamond", "Master", "Top 100"}, function(selected)
+_G.AddTextBox(ChangerSection, "Desired Name", "원하는 이름 입력", function(value)
+    fakeName = value
+end)
+
+local fakeLevel = ""
+local levelToggle = false
+_G.AddToggle(ChangerSection, "Level Changer", false, function(state)
+    levelToggle = state
+    if levelToggle and fakeLevel ~= "" then
+        local lp = game:GetService("Players").LocalPlayer
+        if lp:FindFirstChild("leaderstats") then
+            local lvlStat = lp.leaderstats:FindFirstChild("Level") or lp.leaderstats:FindFirstChild("level")
+            if lvlStat then
+                lvlStat.Value = tonumber(fakeLevel) or fakeLevel
+            end
+        end
+        if lp:FindFirstChild("PlayerGui") then
+            for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
+                if ui:IsA("TextLabel") or ui:IsA("TextButton") then
+                    local name = ui.Name:lower()
+                    if name:find("level") or name:find("lvl") then
+                        ui.Text = tostring(fakeLevel)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+_G.AddTextBox(ChangerSection, "Desired Level", "원하는 레벨 입력", function(value)
+    fakeLevel = value
+end)
+
+_G.AddDropdown(ChangerSection, "Rank Changer", {"Bronze", "Silver", "Gold", "Diamond", "Master", "Top 100"}, function(selected)
     local lp = game:GetService("Players").LocalPlayer
     if lp:FindFirstChild("PlayerGui") then
         for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
@@ -1444,49 +1475,31 @@ _G.AddDropdown(CharSection, "Rank Tier", {"Bronze", "Silver", "Gold", "Diamond",
     end
 end)
 
-_G.AddTextBox(CharSection, "Leaderboard Rank", "등수 입력 (예: 100000)", function(value)
-    local newRank = tonumber(value) or value
-    local lp = game:GetService("Players").LocalPlayer
-
-    if lp:FindFirstChild("leaderstats") then
-        local rankStat = lp.leaderstats:FindFirstChild("Rank") or lp.leaderstats:FindFirstChild("rank") or lp.leaderstats:FindFirstChild("LeaderboardRank")
-        if rankStat then
-            rankStat.Value = newRank
+local fakeStreak = ""
+local streakToggle = false
+_G.AddToggle(ChangerSection, "Win Streak Changer", false, function(state)
+    streakToggle = state
+    if streakToggle and fakeStreak ~= "" then
+        local lp = game:GetService("Players").LocalPlayer
+        if lp:FindFirstChild("leaderstats") then
+            local streakStat = lp.leaderstats:FindFirstChild("Streak") or lp.leaderstats:FindFirstChild("winstreak") or lp.leaderstats:FindFirstChild("WinStreak")
+            if streakStat then
+                streakStat.Value = tonumber(fakeStreak) or fakeStreak
+            end
         end
-    end
-
-    if lp:FindFirstChild("PlayerGui") then
-        for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
-            if ui:IsA("TextLabel") or ui:IsA("TextButton") then
-                local name = ui.Name:lower()
-                local text = ui.Text:lower()
-                if name:find("leaderboard") or name:find("rank") or name:find("placement") or text:find("#") then
-                    ui.Text = "#" .. tostring(newRank)
+        if lp:FindFirstChild("PlayerGui") then
+            for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
+                if ui:IsA("TextLabel") or ui:IsA("TextButton") then
+                    local name = ui.Name:lower()
+                    if name:find("streak") or name:find("winstreak") then
+                        ui.Text = tostring(fakeStreak)
+                    end
                 end
             end
         end
     end
 end)
 
-_G.AddTextBox(CharSection, "Win Streak", "연승 수 입력", function(value)
-    local newStreak = tonumber(value) or value
-    local lp = game:GetService("Players").LocalPlayer
-
-    if lp:FindFirstChild("leaderstats") then
-        local streakStat = lp.leaderstats:FindFirstChild("Streak") or lp.leaderstats:FindFirstChild("winstreak") or lp.leaderstats:FindFirstChild("WinStreak")
-        if streakStat then
-            streakStat.Value = newStreak
-        end
-    end
-
-    if lp:FindFirstChild("PlayerGui") then
-        for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
-            if ui:IsA("TextLabel") or ui:IsA("TextButton") then
-                local name = ui.Name:lower()
-                if name:find("streak") or name:find("winstreak") then
-                    ui.Text = tostring(newStreak)
-                end
-            end
-        end
-    end
+_G.AddTextBox(ChangerSection, "Desired Win Streak", "원하는 연승 입력", function(value)
+    fakeStreak = value
 end)
