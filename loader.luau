@@ -1405,11 +1405,10 @@ task.spawn(function()
     end
 end)
 
--- ==================== ARCADE TAB ====================
+-- ==================== ARCADE SECTION (MISC 탭에 추가) ====================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -1420,7 +1419,7 @@ local Utility = require(ReplicatedStorage.Modules.Utility)
 local autoHealth = true
 local autoAmmo = true
 local autoRespawn = true
-local arcadeRageBot = true   -- Arcade Rage Bot 토글
+local arcadeRageBot = true
 
 -- ==================== ANTI VOID ====================
 Workspace.FallenPartsDestroyHeight = -math.huge
@@ -1445,83 +1444,79 @@ LocalPlayer.CharacterAdded:Connect(ProtectCharacter)
 -- ==================== ARCADE RAGE BOT ====================
 local target = nil
 
-if arcadeRageBot then
-    -- Target Finder
-    RunService.Heartbeat:Connect(function()
-        if not arcadeRageBot then return end
-        local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return end
+RunService.Heartbeat:Connect(function()
+    if not arcadeRageBot then return end
+    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
 
-        local closest, minDist = nil, math.huge
-        for _, plr in Players:GetPlayers() do
-            if plr == LocalPlayer then continue end
-            local tTeam = plr:GetAttribute("TeamID")
-            local mTeam = LocalPlayer:GetAttribute("TeamID")
-            if tTeam and mTeam and tTeam == mTeam then continue end
+    local closest, minDist = nil, math.huge
+    for _, plr in Players:GetPlayers() do
+        if plr == LocalPlayer then continue end
+        local tTeam = plr:GetAttribute("TeamID")
+        local mTeam = LocalPlayer:GetAttribute("TeamID")
+        if tTeam and mTeam and tTeam == mTeam then continue end
 
-            local char = plr.Character
-            if char and char:FindFirstChild("Head") and char:FindFirstChild("HumanoidRootPart") then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
-                    local dist = (myRoot.Position - char.HumanoidRootPart.Position).Magnitude
-                    if dist < minDist and dist <= 450 then
-                        minDist = dist
-                        closest = plr
-                    end
+        local char = plr.Character
+        if char and char:FindFirstChild("Head") and char:FindFirstChild("HumanoidRootPart") then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local dist = (myRoot.Position - char.HumanoidRootPart.Position).Magnitude
+                if dist < minDist and dist <= 450 then
+                    minDist = dist
+                    closest = plr
                 end
             end
         end
-        target = closest
-    end)
-
-    -- 모든 무기 Silent Aim
-    local weapons = {"Gun", "Slingshot", "Bow", "Daggers"}
-    for _, name in ipairs(weapons) do
-        pcall(function()
-            local mod = require(LocalPlayer.PlayerScripts.Modules.ItemTypes[name])
-            local old = mod.StartShooting or mod.Fire
-            if old then
-                mod.StartShooting = function(obj, ...)
-                    local args = {old(obj, ...)}
-                    if target and target.Character and target.Character:FindFirstChild("Head") then
-                        local head = target.Character.Head
-                        local packet = args[3] or args[2]
-                        if packet and typeof(packet) == "table" then
-                            local pos = head.Position
-                            packet[utf8.char(0)] = Utility:EncodeCFrame(CFrame.new(pos - Vector3.new(0, 3.5, 0), pos))
-                            packet[utf8.char(2)] = head
-                        end
-                    end
-                    return unpack(args)
-                end
-            end
-        end)
     end
+    target = closest
+end)
 
-    -- 상대 머리 위 지속 텔레포
-    RunService.Heartbeat:Connect(function()
-        if not arcadeRageBot then return end
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        local old = root.CFrame
-
-        if target and target.Character and target.Character:FindFirstChild("Head") then
-            local head = target.Character.Head
-            root.CFrame = head.CFrame * CFrame.new(0, 7, 0)
-        else
-            root.CFrame = root.CFrame * CFrame.new(math.random(-25,25), math.random(-10,20), math.random(-25,25))
+-- Silent Aim (모든 무기)
+local weapons = {"Gun", "Slingshot", "Bow", "Daggers"}
+for _, name in ipairs(weapons) do
+    pcall(function()
+        local mod = require(LocalPlayer.PlayerScripts.Modules.ItemTypes[name])
+        local old = mod.StartShooting or mod.Fire
+        if old then
+            mod.StartShooting = function(obj, ...)
+                local args = {old(obj, ...)}
+                if target and target.Character and target.Character:FindFirstChild("Head") then
+                    local head = target.Character.Head
+                    local packet = args[3] or args[2]
+                    if packet and typeof(packet) == "table" then
+                        local pos = head.Position
+                        packet[utf8.char(0)] = Utility:EncodeCFrame(CFrame.new(pos - Vector3.new(0, 3.5, 0), pos))
+                        packet[utf8.char(2)] = head
+                    end
+                end
+                return unpack(args)
+            end
         end
-
-        RunService:BindToRenderStep("ArcadeRestore", 101, function()
-            root.CFrame = old
-            RunService:UnbindFromRenderStep("ArcadeRestore")
-        end)
     end)
 end
 
+-- 상대 머리 위 지속 텔레포
+RunService.Heartbeat:Connect(function()
+    if not arcadeRageBot then return end
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local old = root.CFrame
+
+    if target and target.Character and target.Character:FindFirstChild("Head") then
+        root.CFrame = target.Character.Head.CFrame * CFrame.new(0, 7, 0)
+    else
+        root.CFrame = root.CFrame * CFrame.new(math.random(-25,25), math.random(-10,20), math.random(-25,25))
+    end
+
+    RunService:BindToRenderStep("ArcadeRestore", 101, function()
+        root.CFrame = old
+        RunService:UnbindFromRenderStep("ArcadeRestore")
+    end)
+end)
+
 -- ==================== AUTO COLLECT ====================
 local t = 0
-local connection = RunService.RenderStepped:Connect(function(dt)
+RunService.RenderStepped:Connect(function(dt)
     local character = LocalPlayer.Character
     if not character then return end
     local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -1537,206 +1532,15 @@ local connection = RunService.RenderStepped:Connect(function(dt)
                 obj.CFrame = CFrame.new(hrp.Position + Vector3.new(0, bounce, 0))
                 obj.Transparency = 1
                 for _, child in pairs(obj:GetDescendants()) do
-                    if child:IsA("BasePart") or child:IsA("UnionOperation") or child:IsA("MeshPart") or child:IsA("SpecialMesh") then
-                        pcall(function() child.Transparency = 1 end)
-                    end
-                    if child:IsA("BillboardGui") or child:IsA("SurfaceGui") or child:IsA("ParticleEmitter") or child:IsA("SelectionBox") then
-                        pcall(function() child.Enabled = false end)
-                    end
+                    pcall(function()
+                        if child:IsA("BasePart") or child:IsA("MeshPart") or child:IsA("SpecialMesh") then
+                            child.Transparency = 1
+                        end
+                    end)
                 end
             end
         end
     end
 end)
 
--- ==================== UI (기존 그대로) ====================
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoCollectBoostersFFA"
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.Parent = LocalPlayer.PlayerGui
-
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 280, 0, 0)
-mainFrame.Position = UDim2.new(0, 20, 0, 50)
-mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-mainFrame.BorderSizePixel = 0
-mainFrame.ClipsDescendants = true
-mainFrame.Parent = screenGui
-
-local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 6)
-mainCorner.Parent = mainFrame
-
-local titleBar = Instance.new("Frame")
-titleBar.Size = UDim2.new(1, 0, 0, 40)
-titleBar.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-titleBar.BorderSizePixel = 0
-titleBar.ZIndex = 2
-titleBar.Parent = mainFrame
-
-local titleCorner = Instance.new("UICorner")
-titleCorner.CornerRadius = UDim.new(0, 6)
-titleCorner.Parent = titleBar
-
-local titlePatch = Instance.new("Frame")
-titlePatch.Size = UDim2.new(1, 0, 0, 6)
-titlePatch.Position = UDim2.new(0, 0, 1, -6)
-titlePatch.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-titlePatch.BorderSizePixel = 0
-titlePatch.ZIndex = 2
-titlePatch.Parent = titleBar
-
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, -90, 1, 0)
-titleLabel.Position = UDim2.new(0, 12, 0, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Arcade Tab"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.TextSize = 13
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-titleLabel.ZIndex = 3
-titleLabel.Parent = titleBar
-
-local minBtn = Instance.new("TextButton")
-minBtn.Size = UDim2.new(0, 30, 0, 26)
-minBtn.Position = UDim2.new(1, -66, 0.5, -13)
-minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-minBtn.Text = "-"
-minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-minBtn.Font = Enum.Font.GothamBold
-minBtn.TextSize = 16
-minBtn.BorderSizePixel = 0
-minBtn.ZIndex = 3
-minBtn.Parent = titleBar
-
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 30, 0, 26)
-closeBtn.Position = UDim2.new(1, -32, 0.5, -13)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 13
-closeBtn.BorderSizePixel = 0
-closeBtn.ZIndex = 3
-closeBtn.Parent = titleBar
-
--- UI 드래그 기능 (기존 그대로)
-local dragging, dragStart, startPos
-titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = mainFrame.Position
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
-end)
-
-local content = Instance.new("Frame")
-content.Size = UDim2.new(1, -24, 0, 0)
-content.Position = UDim2.new(0, 12, 0, 48)
-content.BackgroundTransparency = 1
-content.Parent = mainFrame
-
-local listLayout = Instance.new("UIListLayout")
-listLayout.Padding = UDim.new(0, 7)
-listLayout.FillDirection = Enum.FillDirection.Vertical
-listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-listLayout.Parent = content
-
-local function updateSize()
-    local h = listLayout.AbsoluteContentSize.Y
-    content.Size = UDim2.new(1, -24, 0, h)
-    mainFrame.Size = UDim2.new(0, 280, 0, h + 62)
-end
-
-listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSize)
-
-local orderIndex = 0
-local function nextOrder()
-    orderIndex = orderIndex + 1
-    return orderIndex
-end
-
-local function createToggle(name, default, callback)
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, 0, 0, 42)
-    row.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
-    row.BorderSizePixel = 0
-    row.LayoutOrder = nextOrder()
-    row.Parent = content
-
-    local rowCorner = Instance.new("UICorner")
-    rowCorner.CornerRadius = UDim.new(0, 6)
-    rowCorner.Parent = row
-
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(0.6, 0, 1, 0)
-    nameLabel.Position = UDim2.new(0, 12, 0, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = name
-    nameLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-    nameLabel.Font = Enum.Font.Gotham
-    nameLabel.TextSize = 15
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    nameLabel.Parent = row
-
-    local toggleBg = Instance.new("Frame")
-    toggleBg.Size = UDim2.new(0, 44, 0, 22)
-    toggleBg.Position = UDim2.new(1, -54, 0.5, -11)
-    toggleBg.BackgroundColor3 = default and Color3.fromRGB(0, 162, 255) or Color3.fromRGB(55, 55, 55)
-    toggleBg.BorderSizePixel = 0
-    toggleBg.Parent = row
-
-    local bgCorner = Instance.new("UICorner")
-    bgCorner.CornerRadius = UDim.new(1, 0)
-    bgCorner.Parent = toggleBg
-
-    local knob = Instance.new("Frame")
-    knob.Size = UDim2.new(0, 16, 0, 16)
-    knob.Position = default and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
-    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    knob.BorderSizePixel = 0
-    knob.Parent = toggleBg
-
-    local knobCorner = Instance.new("UICorner")
-    knobCorner.CornerRadius = UDim.new(1, 0)
-    knobCorner.Parent = knob
-
-    local state = default
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    btn.Parent = row
-
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        toggleBg.BackgroundColor3 = state and Color3.fromRGB(0, 162, 255) or Color3.fromRGB(55, 55, 55)
-        knob.Position = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
-        callback(state)
-    end)
-end
-
-createToggle("Auto Health", true, function(val) autoHealth = val end)
-createToggle("Auto Ammo", true, function(val) autoAmmo = val end)
-createToggle("Auto Respawn", true, function(val) autoRespawn = val end)
-createToggle("Arcade Rage Bot", true, function(val) arcadeRageBot = val end)
-
-updateSize()
-
-print("✅ Arcade Tab 추가 완료 (Auto Health | Auto Ammo | Auto Respawn | Arcade Rage Bot)")
+print("✅ Arcade Section 추가됨 (MISC 탭)")
