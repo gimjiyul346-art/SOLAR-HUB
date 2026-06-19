@@ -1405,3 +1405,306 @@ task.spawn(function()
     end
 end)
 
+local _G = getgenv()
+if _G.SolarHubEnabled then return end
+_G.SolarHubEnabled = true
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+
+_G.CrosshairEnabled = false
+_G.CrosshairType = "Circle"
+_G.ItemESPCommon = false
+_G.ItemESPRare = false
+_G.ItemESPEpic = false
+_G.HitMarkerEnabled = false
+
+_G.Crosshairs = {
+    ["Circle"] = {type = "Circle", radius = 10, thickness = 2, color = Color3.fromRGB(0, 255, 0), pos = Vector2.new(0, 0), segments = 32},
+    ["Square"] = {type = "Square", size = 20, thickness = 2, color = Color3.fromRGB(0, 255, 0), pos = Vector2.new(0, 0)},
+    ["Dot"] = {type = "Dot", radius = 3, color = Color3.fromRGB(0, 255, 0), pos = Vector2.new(0, 0)}
+}
+
+local currentCrosshairObject = nil
+
+local function drawCrosshair(type)
+    if not _G.CrosshairEnabled then return end
+    if currentCrosshairObject then currentCrosshairObject:Remove() currentCrosshairObject = nil end
+    
+    local crosshairData = _G.Crosshairs[type]
+    local drawingObject = nil
+    
+    if type == "Circle" then
+        drawingObject = Drawing.new("Circle")
+        for k, v in pairs(crosshairData) do if k ~= "type" then drawingObject[k] = v end end
+        drawingObject.Position = Vector2.new(Workspace.CurrentCamera.ViewportSize.X / 2, Workspace.CurrentCamera.ViewportSize.Y / 2)
+    elseif type == "Square" then
+        drawingObject = Drawing.new("Square")
+        for k, v in pairs(crosshairData) do if k ~= "type" then drawingObject[k] = v end end
+        drawingObject.Position = Vector2.new(Workspace.CurrentCamera.ViewportSize.X / 2 - crosshairData.size / 2, Workspace.CurrentCamera.ViewportSize.Y / 2 - crosshairData.size / 2)
+    elseif type == "Dot" then
+        drawingObject = Drawing.new("Circle")
+        for k, v in pairs(crosshairData) do if k ~= "type" then drawingObject[k] = v end end
+        drawingObject.Position = Vector2.new(Workspace.CurrentCamera.ViewportSize.X / 2, Workspace.CurrentCamera.ViewportSize.Y / 2)
+        drawingObject.Filled = true
+    end
+    currentCrosshairObject = drawingObject
+end
+
+local function drawSkeleton(player, color)
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    local head = character:FindFirstChild("Head")
+    if not head then return end
+    local joints = {}
+    
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") then
+            local root = part.Name:match("(.+)Part") or part.Name
+            for _, attachment in pairs(part:GetChildren()) do
+                if attachment:IsA("Attachment") and attachment.Name:match("Joint") then
+                    table.insert(joints, {part = part, attachment = attachment})
+                end
+            end
+        end
+    end
+    
+    for i, jointData in ipairs(joints) do
+        if i > 1 then
+            local prevJointData = joints[i - 1]
+            local startPos = Workspace.CurrentCamera:WorldToViewportPoint(jointData.attachment.WorldPosition)
+            local endPos = Workspace.CurrentCamera:WorldToViewportPoint(prevJointData.attachment.WorldPosition)
+            
+            if startPos.Z > 0 and endPos.Z > 0 then
+                local line = Drawing.new("Line")
+                line.Color = color
+                line.Thickness = 1.5
+                line.From = Vector2.new(startPos.X, startPos.Y)
+                line.To = Vector2.new(endPos.X, endPos.Y)
+                Debris:AddItem(line, 0.05)
+            end
+        end
+    end
+    
+    local rootPart = character.HumanoidRootPart
+    local rootToHeadStart = Workspace.CurrentCamera:WorldToViewportPoint(rootPart.Position)
+    local rootToHeadEnd = Workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+    if rootToHeadStart.Z > 0 and rootToHeadEnd.Z > 0 then
+        local line = Drawing.new("Line")
+        line.Color = color
+        line.Thickness = 1.5
+        line.From = Vector2.new(rootToHeadStart.X, rootToHeadStart.Y)
+        line.To = Vector2.new(rootToHeadEnd.X, rootToHeadEnd.Y)
+        Debris:AddItem(line, 0.05)
+    end
+end
+
+local function applyFullBright() Lighting.Ambient = Color3.fromRGB(255, 255, 255) Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255) Lighting.Brightness = 2 end
+local function resetFullBright() Lighting.Ambient = Color3.fromRGB(127, 127, 127) Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127) Lighting.Brightness = 1 end
+local function applyNightMode() Lighting.TimeOfDay = "00:00:00" Lighting.Ambient = Color3.fromRGB(15, 15, 15) Lighting.OutdoorAmbient = Color3.fromRGB(15, 15, 15) end
+local function resetNightMode() Lighting.TimeOfDay = "14:00:00" resetFullBright() end
+local function applyNoFog() Lighting.FogEnd = 100000 Lighting.FogStart = 0 end
+local function resetNoFog() Lighting.FogEnd = 100 Lighting.FogStart = 0 end
+
+local function itemESP()
+    if not (_G.ItemESPCommon or _G.ItemESPRare or _G.ItemESPEpic) then return end
+    
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("Model") and (v.Name:find("Weapon") or v.Name:find("Ammo") or v.Name:find("Armor") or v.Name:find("Health")) then
+            local part = v:FindFirstChild("Part") or v:FindFirstChild("Handle") or v:FindFirstChild("Mesh") or v:FindFirstChild("Base") or v:FindFirstChildOfClass("BasePart")
+            if part then
+                local position, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local rarity = v:FindFirstChild("Rarity") and v.Rarity.Value or "Common"
+                    if (_G.ItemESPCommon and rarity == "Common") or (_G.ItemESPRare and rarity == "Rare") or (_G.ItemESPEpic and rarity == "Epic") then
+                        local text = Drawing.new("Text")
+                        text.Color = rarity == "Epic" and Color3.fromRGB(255, 215, 0) or rarity == "Rare" and Color3.fromRGB(0, 191, 255) or Color3.fromRGB(255, 255, 255)
+                        text.Size = 14
+                        text.Center = true
+                        text.Outline = true
+                        text.Position = Vector2.new(position.X, position.Y)
+                        text.Text = string.format("%s (%sm)", v.Name, math.floor(position.Z / 10 + 0.5))
+                        Debris:AddItem(text, 0.05)
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function drawHitMarker(position)
+    local viewportPos = Workspace.CurrentCamera:WorldToViewportPoint(position)
+    if viewportPos.Z > 0 then
+        local dot = Drawing.new("Circle")
+        dot.Radius = 3
+        dot.Thickness = 1
+        dot.Filled = true
+        dot.Color = Color3.fromRGB(255, 0, 0)
+        dot.Position = Vector2.new(viewportPos.X, viewportPos.Y)
+        Debris:AddItem(dot, 0.5)
+        local text = Drawing.new("Text")
+        text.Size = 20
+        text.Outline = true
+        text.Center = true
+        text.Color = Color3.fromRGB(255, 0, 0)
+        text.Position = Vector2.new(viewportPos.X, viewportPos.Y - 20)
+        text.Text = "HIT"
+        Debris:AddItem(text, 0.5)
+    end
+end
+
+Workspace.DescendantAdded:Connect(function(descendant)
+    if _G.NoSmoke and descendant:IsA("Smoke") then descendant:Destroy() end
+end)
+
+for _, descendant in pairs(Workspace:GetDescendants()) do
+    if _G.NoSmoke and descendant:IsA("Smoke") then descendant:Destroy() end
+end
+
+local bulletTracers = {}
+local function createBulletTracer(origin, direction, length)
+    local attachment0 = Instance.new("Attachment")
+    attachment0.Position = origin
+    attachment0.Parent = Workspace.Terrain
+    local attachment1 = Instance.new("Attachment")
+    attachment1.Position = origin + direction.Unit * length
+    attachment1.Parent = Workspace.Terrain
+    
+    local line = Drawing.new("Line")
+    line.Color = Color3.fromRGB(0, 255, 0)
+    line.Thickness = 2
+    table.insert(bulletTracers, {line = line, attachment0 = attachment0, attachment1 = attachment1})
+end
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if _G.Skeleton then drawSkeleton(player, player.TeamColor.Color) end
+            if _G.TracerLines then
+                local humanoidRootPart = player.Character.HumanoidRootPart
+                local position, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(humanoidRootPart.Position)
+                if onScreen then
+                    local tracerLine = Drawing.new("Line")
+                    tracerLine.Color = player.TeamColor.Color
+                    tracerLine.Thickness = 1.5
+                    tracerLine.From = Vector2.new(Workspace.CurrentCamera.ViewportSize.X / 2, Workspace.CurrentCamera.ViewportSize.Y / 2)
+                    tracerLine.To = Vector2.new(position.X, position.Y)
+                    Debris:AddItem(tracerLine, 0.05)
+                end
+            end
+            if _G.Health and player.Character:FindFirstChild("Humanoid") then
+                local humanoidRootPart = player.Character.HumanoidRootPart
+                local position, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(humanoidRootPart.Position)
+                if onScreen then
+                    local healthBar = Drawing.new("Line")
+                    healthBar.Color = Color3.fromRGB(0, 255, 0)
+                    healthBar.Thickness = 2
+                    healthBar.From = Vector2.new(position.X - 20, position.Y + 20)
+                    healthBar.To = Vector2.new(position.X - 20 + player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth * 40, position.Y + 20)
+                    Debris:AddItem(healthBar, 0.05)
+                end
+            end
+            if _G.TeamCheck and player.Team ~= Players.LocalPlayer.Team then player.Character:Remove() end
+        end
+    end
+    
+    if _G.CrosshairEnabled then
+        if not currentCrosshairObject or not UserInputService:IsMouseButtonPressed(Enum.MouseButton.Right) then
+            drawCrosshair(_G.CrosshairType)
+        elseif currentCrosshairObject then
+            currentCrosshairObject:Remove()
+            currentCrosshairObject = nil
+        end
+    end
+    
+    itemESP()
+    
+    for i, tracerData in ipairs(bulletTracers) do
+        local positionA, onScreenA = Workspace.CurrentCamera:WorldToViewportPoint(tracerData.attachment0.WorldPosition)
+        local positionB, onScreenB = Workspace.CurrentCamera:WorldToViewportPoint(tracerData.attachment1.WorldPosition)
+        if onScreenA and onScreenB then
+            tracerData.line.From = Vector2.new(positionA.X, positionA.Y)
+            tracerData.line.To = Vector2.new(positionB.X, positionB.Y)
+        else
+            tracerData.line.Visible = false
+        end
+        Debris:AddItem(tracerData.attachment0, 0.5)
+        Debris:AddItem(tracerData.attachment1, 0.5)
+        Debris:AddItem(tracerData.line, 0.5)
+        table.remove(bulletTracers, i)
+    end
+end)
+
+Players.LocalPlayer.Character.Humanoid.Died:Connect(function()
+    _G.SolarHubEnabled = false
+    if currentCrosshairObject then currentCrosshairObject:Remove() currentCrosshairObject = nil end
+    resetFullBright()
+    resetNightMode()
+    resetNoFog()
+    CoreGui.SolarConfigPanel:Destroy()
+end)
+
+_G.SolarLoad()
+_G.OnSolarConfigLoaded = function()
+    _G.ESP = _G.SolarSettings.ESP
+    _G.BOXES = _G.SolarSettings.Boxes
+    _G.NAMES = _G.SolarSettings.Names
+    _G.DISTANCE = _G.SolarSettings.Distance
+    _G.TeamCheck = _G.SolarSettings.TeamCheck
+    _G.DistanceFilter = _G.SolarSettings.DistanceFilter
+    _G.Chams = _G.SolarSettings.Chams
+    _G.TracerLines = _G.SolarSettings.TracerLines
+    _G.Skeleton = _G.SolarSettings.Skeleton
+    _G.Health = _G.SolarSettings.Health
+    _G.CrosshairEnabled = _G.SolarSettings.CrosshairEnabled
+    _G.CrosshairType = _G.SolarSettings.CrosshairType
+    _G.FullBright = _G.SolarSettings.FullBright
+    _G.NightMode = _G.SolarSettings.NightMode
+    _G.NoFog = _G.SolarSettings.NoFog
+    _G.NoSmoke = _G.SolarSettings.NoSmoke
+    _G.ItemESPCommon = _G.SolarSettings.ItemESPCommon
+    _G.ItemESPRare = _G.SolarSettings.ItemESPRare
+    _G.ItemESPEpic = _G.SolarSettings.ItemESPEpic
+    _G.BulletTracers = _G.SolarSettings.BulletTracers
+    _G.HitMarkerEnabled = _G.SolarSettings.HitMarkerEnabled
+    if _G.FullBright then applyFullBright() else resetFullBright() end
+    if _G.NightMode then applyNightMode() else resetNightMode() end
+    if _G.NoFog then applyNoFog() else resetNoFog() end
+    if _G.CrosshairEnabled then drawCrosshair(_G.CrosshairType) end
+end
+if _G.SolarSettings.AutoLoad then _G.OnSolarConfigLoaded() end
+
+local TabESP = Tabs["esp"].Left
+local TabWorld = Tabs["world"].Left
+local ESPSettingsSection = _G.AddSection(TabESP, "ESP Settings")
+local WorldHacksSection = _G.AddSection(TabWorld, "World Hacks")
+local LootHacksSection = _G.AddSection(TabWorld, "Item / Loot ESP Hacks")
+local CombatHacksSection = _G.AddSection(TabWorld, "Combat Visual Hacks")
+local SkeletonSection = _G.AddSection(TabESP, "Skeleton Visualization")
+
+_G.AddToggle(SkeletonSection, "Skeleton Visualization", _G.Skeleton, function(state) _G.Skeleton = state _G.SolarSettings.Skeleton = state _G.SolarSave() end)
+_G.AddToggle(WorldHacksSection, "Full Bright", _G.FullBright, function(state) _G.FullBright = state if state then applyFullBright() else resetFullBright() end _G.SolarSettings.FullBright = state _G.SolarSave() end)
+_G.AddToggle(WorldHacksSection, "Night Mode", _G.NightMode, function(state) _G.NightMode = state if state then applyNightMode() else resetNightMode() end _G.SolarSettings.NightMode = state _G.SolarSave() end)
+_G.AddToggle(WorldHacksSection, "No Fog", _G.NoFog, function(state) _G.NoFog = state if state then applyNoFog() else resetNoFog() end _G.SolarSettings.NoFog = state _G.SolarSave() end)
+_G.AddToggle(WorldHacksSection, "No Smoke", _G.NoSmoke, function(state) _G.NoSmoke = state _G.SolarSettings.NoSmoke = state _G.SolarSave() end)
+_G.AddToggle(LootHacksSection, "Item Common", _G.ItemESPCommon, function(state) _G.ItemESPCommon = state _G.SolarSettings.ItemESPCommon = state _G.SolarSave() end)
+_G.AddToggle(LootHacksSection, "Item Rare", _G.ItemESPRare, function(state) _G.ItemESPRare = state _G.SolarSettings.ItemESPRare = state _G.SolarSave() end)
+_G.AddToggle(LootHacksSection, "Item Epic", _G.ItemESPEpic, function(state) _G.ItemESPEpic = state _G.SolarSettings.ItemESPEpic = state _G.SolarSave() end)
+_G.AddToggle(CombatHacksSection, "Bullet Tracers", _G.BulletTracers, function(state) _G.BulletTracers = state _G.SolarSettings.BulletTracers = state _G.SolarSave() end)
+_G.AddToggle(CombatHacksSection, "Hit Marker", _G.HitMarkerEnabled, function(state) _G.HitMarkerEnabled = state _G.SolarSettings.HitMarkerEnabled = state _G.SolarSave() end)
+_G.AddToggle(ESPSettingsSection, "Boxes", _G.BOXES, function(state) _G.BOXES = state _G.SolarSettings.Boxes = state _G.SolarSave() end)
+_G.AddToggle(ESPSettingsSection, "Names", _G.NAMES, function(state) _G.NAMES = state _G.SolarSettings.Names = state _G.SolarSave() end)
+_G.AddToggle(ESPSettingsSection, "Distance", _G.DISTANCE, function(state) _G.DISTANCE = state _G.SolarSettings.Distance = state _G.SolarSave() end)
+_G.AddToggle(ESPSettingsSection, "Health", _G.Health, function(state) _G.Health = state _G.SolarSettings.Health = state _G.SolarSave() end)
+_G.AddToggle(ESPSettingsSection, "Team Check", _G.TeamCheck, function(state) _G.TeamCheck = state _G.SolarSettings.TeamCheck = state _G.SolarSave() end)
+_G.AddSlider(ESPSettingsSection, "Distance Filter", 100, 2000, _G.DistanceFilter, 100, function(value) _G.DistanceFilter = value _G.SolarSettings.DistanceFilter = value _G.SolarSave() end)
+local CrosshairSection = _G.AddSection(TabESP, "Custom Crosshair")
+_G.AddToggle(CrosshairSection, "Custom Crosshair", _G.CrosshairEnabled, function(state) _G.CrosshairEnabled = state if state then drawCrosshair(_G.CrosshairType) elseif currentCrosshairObject then currentCrosshairObject:Remove() currentCrosshairObject = nil end _G.SolarSettings.CrosshairEnabled = state _G.SolarSave() end)
+local crosshairTypes = {"Circle", "Square", "Dot"}
+_G.AddDropdown(CrosshairSection, "Crosshair Type", crosshairTypes, _G.CrosshairType, function(selected) _G.CrosshairType = selected if _G.CrosshairEnabled then drawCrosshair(selected) end _G.SolarSettings.CrosshairType = selected _G.SolarSave() end)
+_G.AddToggle(TabESP, "Tracer Lines", _G.TracerLines, function(state) _G.TracerLines = state _G.SolarSettings.TracerLines = state _G.SolarSave() end)
+_G.AddToggle(TabESP, "Chams", _G.Chams, function(state) _G.Chams = state _G.SolarSettings.Chams = state _G.SolarSave() end)
