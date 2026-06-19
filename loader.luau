@@ -1406,8 +1406,17 @@ task.spawn(function()
 end)
 
 local HttpService = game:GetService("HttpService")
+local lp = game:GetService("Players").LocalPlayer
 
+-- 만능 콘픽 저장소 세팅
 _G.SolarSettings = _G.SolarSettings or {
+    NameChangerToggle = false,
+    NameInput = "",
+    LevelChangerToggle = false,
+    LevelInput = "",
+    RankInput = "Bronze",
+    WinStreakToggle = false,
+    WinStreakInput = "",
     ConfigName = "",
     AutoLoad = false
 }
@@ -1416,19 +1425,113 @@ if not isfolder("SolarHub_Configs") then
     makefolder("SolarHub_Configs")
 end
 
+-- 메인 UI(Tabs)가 로딩될 때까지 최대 5초간 대기 (에러 방지)
+local attempts = 0
+while not Tabs or not Tabs["character"] do
+    task.wait(0.5)
+    attempts = attempts + 1
+    if attempts > 10 then break end
+end
+
+if Tabs British and Tabs["character"] then
+    local ChangerSection = _G.AddSection(Tabs["character"].Right, "Changer")
+
+    _G.AddToggle(ChangerSection, "Name Changer", _G.SolarSettings.NameChangerToggle, function(state)
+        _G.SolarSettings.NameChangerToggle = state
+    end)
+
+    _G.AddToggle(ChangerSection, "Level Changer", _G.SolarSettings.LevelChangerToggle, function(state)
+        _G.SolarSettings.LevelChangerToggle = state
+    end)
+
+    _G.AddToggle(ChangerSection, "Win Streak Changer", _G.SolarSettings.WinStreakToggle, function(state)
+        _G.SolarSettings.WinStreakToggle = state
+    end)
+end
+
+-- 백그라운드 체인저 루프 (0.5초마다 체크)
+task.spawn(function()
+    while task.wait(0.5) do
+        if _G.SolarSettings.NameChangerToggle and _G.SolarSettings.NameInput ~= "" then
+            if lp.Character and lp.Character:FindFirstChild("Humanoid") then
+                lp.Character.Humanoid.DisplayName = _G.SolarSettings.NameInput
+            end
+            if lp:FindFirstChild("PlayerGui") then
+                for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
+                    if ui:IsA("TextLabel") or ui:IsA("TextButton") then
+                        if ui.Text == lp.Name or ui.Text == lp.DisplayName then
+                            ui.Text = _G.SolarSettings.NameInput
+                        end
+                    end
+                end
+            end
+        end
+        
+        if _G.SolarSettings.LevelChangerToggle and _G.SolarSettings.LevelInput ~= "" then
+            if lp:FindFirstChild("leaderstats") then
+                local lvlStat = lp.leaderstats:FindFirstChild("Level") or lp.leaderstats:FindFirstChild("level")
+                if lvlStat then
+                    lvlStat.Value = tonumber(_G.SolarSettings.LevelInput) or _G.SolarSettings.LevelInput
+                end
+            end
+            if lp:FindFirstChild("PlayerGui") then
+                for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
+                    if ui:IsA("TextLabel") or ui:IsA("TextButton") then
+                        local name = ui.Name:lower()
+                        if name:find("level") or name:find("lvl") then
+                            ui.Text = tostring(_G.SolarSettings.LevelInput)
+                        end
+                    end
+                end
+            end
+        end
+
+        if _G.SolarSettings.WinStreakToggle and _G.SolarSettings.WinStreakInput ~= "" then
+            if lp:FindFirstChild("leaderstats") then
+                local streakStat = lp.leaderstats:FindFirstChild("Streak") or lp.leaderstats:FindFirstChild("winstreak") or lp.leaderstats:FindFirstChild("WinStreak")
+                if streakStat then
+                    streakStat.Value = tonumber(_G.SolarSettings.WinStreakInput) or _G.SolarSettings.WinStreakInput
+                end
+            end
+            if lp:FindFirstChild("PlayerGui") then
+                for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
+                    if ui:IsA("TextLabel") or ui:IsA("TextButton") then
+                        local name = ui.Name:lower()
+                        if name:find("streak") or name:find("winstreak") then
+                            ui.Text = tostring(_G.SolarSettings.WinStreakInput)
+                        end
+                    end
+                end
+            end
+        end
+
+        if lp:FindFirstChild("PlayerGui") then
+            for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
+                if ui:IsA("TextLabel") or ui:IsA("TextButton") then
+                    local name = ui.Name:lower()
+                    if name:find("tier") or name:find("rankname") then
+                        ui.Text = _G.SolarSettings.RankInput
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- 입력창 및 만능 콘픽 패널 GUI 생성
 task.spawn(function()
     local CoreGui = game:GetService("CoreGui")
-    if CoreGui:FindFirstChild("SolarConfigPanel") then
-        CoreGui.SolarConfigPanel:Destroy()
+    if CoreGui:FindFirstChild("SolarInputPanel") then
+        CoreGui.SolarInputPanel:Destroy()
     end
 
     local sg = Instance.new("ScreenGui")
-    sg.Name = "SolarConfigPanel"
+    sg.Name = "SolarInputPanel"
     sg.ResetOnSpawn = false
     sg.Parent = CoreGui
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 200, 0, 195)
+    frame.Size = UDim2.new(0, 200, 0, 420)
     frame.Position = UDim2.new(0.1, 0, 0.2, 0)
     frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     frame.BorderColor3 = Color3.fromRGB(255, 0, 55)
@@ -1442,7 +1545,7 @@ task.spawn(function()
     title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     title.BorderColor3 = Color3.fromRGB(255, 0, 55)
     title.BorderSizePixel = 1
-    title.Text = "SOLAR CONFIG (Drag)"
+    title.Text = "SOLAR CONTROLLER (Drag)"
     title.TextColor3 = Color3.fromRGB(255, 0, 55)
     title.Font = Enum.Font.Code
     title.TextSize = 12
@@ -1460,27 +1563,74 @@ task.spawn(function()
     pad.LayoutOrder = 0
     pad.Parent = frame
 
+    local nameBox = Instance.new("TextBox")
+    local lvlBox = Instance.new("TextBox")
+    local streakBox = Instance.new("TextBox")
     local configBox = Instance.new("TextBox")
-    configBox.Size = UDim2.new(0, 180, 0, 30)
-    configBox.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-    configBox.BorderColor3 = Color3.fromRGB(40, 40, 40)
-    configBox.BorderSizePixel = 1
-    configBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    configBox.PlaceholderText = "Config Name..."
-    configBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
-    configBox.Font = Enum.Font.Code
-    configBox.TextSize = 13
-    configBox.Text = _G.SolarSettings.ConfigName or ""
-    configBox.LayoutOrder = 1
-    configBox.Parent = frame
+    local autoLoadBtn = Instance.new("TextButton")
 
-    configBox:GetPropertyChangedSignal("Text"):Connect(function()
-        _G.SolarSettings.ConfigName = configBox.Text
+    local function makeBox(box, placeholder, order, configKey)
+        box.Size = UDim2.new(0, 180, 0, 30)
+        box.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+        box.BorderColor3 = Color3.fromRGB(40, 40, 40)
+        box.BorderSizePixel = 1
+        box.TextColor3 = Color3.fromRGB(255, 255, 255)
+        box.PlaceholderText = placeholder
+        box.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+        box.Font = Enum.Font.Code
+        box.TextSize = 13
+        box.Text = _G.SolarSettings[configKey] or ""
+        box.LayoutOrder = order
+        box.Parent = frame
+
+        box:GetPropertyChangedSignal("Text"):Connect(function()
+            _G.SolarSettings[configKey] = box.Text
+        end)
+        box.Focused:Connect(function() box.BorderColor3 = Color3.fromRGB(255, 0, 55) end)
+        box.FocusLost:Connect(function() box.BorderColor3 = Color3.fromRGB(40, 40, 40) end)
+    end
+
+    makeBox(nameBox, "Name Input...", 1, "NameInput")
+    makeBox(lvlBox, "Level Input...", 2, "LevelInput")
+    makeBox(streakBox, "Win Streak Input...", 4, "WinStreakInput")
+
+    local rankBtn = Instance.new("TextButton")
+    rankBtn.Size = UDim2.new(0, 180, 0, 30)
+    rankBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    rankBtn.BorderColor3 = Color3.fromRGB(255, 0, 55)
+    rankBtn.BorderSizePixel = 1
+    rankBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    rankBtn.Font = Enum.Font.Code
+    rankBtn.TextSize = 13
+    rankBtn.Text = "Rank: " .. (_G.SolarSettings.RankInput or "Bronze")
+    rankBtn.LayoutOrder = 3
+    rankBtn.Parent = frame
+
+    local ranks = {"Bronze", "Silver", "Gold", "Diamond", "Master", "Top 100"}
+    local rIdx = 1
+    for i, r in ipairs(ranks) do
+        if r == _G.SolarSettings.RankInput then rIdx = i break end
+    end
+
+    rankBtn.MouseButton1Click:Connect(function()
+        rIdx = rIdx + 1
+        if rIdx > #ranks then rIdx = 1 end
+        _G.SolarSettings.RankInput = ranks[rIdx]
+        rankBtn.Text = "Rank: " .. _G.SolarSettings.RankInput
     end)
+
+    local sep = Instance.new("Frame")
+    sep.Size = UDim2.new(0, 180, 0, 2)
+    sep.BackgroundColor3 = Color3.fromRGB(255, 0, 55)
+    sep.BorderSizePixel = 0
+    sep.LayoutOrder = 5
+    sep.Parent = frame
+
+    makeBox(configBox, "Config Name...", 6, "ConfigName")
 
     local function makeBtn(text, order, color, callback)
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 180, 0, 26)
+        btn.Size = UDim2.new(0, 180, 0, 28)
         btn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
         btn.BorderColor3 = color
         btn.BorderSizePixel = 1
@@ -1494,16 +1644,6 @@ task.spawn(function()
         return btn
     end
 
-    local autoLoadBtn = Instance.new("TextButton")
-    autoLoadBtn.Size = UDim2.new(0, 180, 0, 26)
-    autoLoadBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-    autoLoadBtn.BorderColor3 = Color3.fromRGB(40, 40, 40)
-    autoLoadBtn.BorderSizePixel = 1
-    autoLoadBtn.Font = Enum.Font.Code
-    autoLoadBtn.TextSize = 12
-    autoLoadBtn.LayoutOrder = 2
-    autoLoadBtn.Parent = frame
-
     local function updateAutoLoadUI()
         if _G.SolarSettings.AutoLoad then
             autoLoadBtn.Text = "Auto Load: ON"
@@ -1514,6 +1654,14 @@ task.spawn(function()
         end
     end
 
+    autoLoadBtn.Size = UDim2.new(0, 180, 0, 28)
+    autoLoadBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    autoLoadBtn.BorderColor3 = Color3.fromRGB(40, 40, 40)
+    autoLoadBtn.BorderSizePixel = 1
+    autoLoadBtn.Font = Enum.Font.Code
+    autoLoadBtn.TextSize = 12
+    autoLoadBtn.LayoutOrder = 7
+    autoLoadBtn.Parent = frame
     autoLoadBtn.MouseButton1Click:Connect(function()
         if _G.SolarSettings.ConfigName ~= "" then
             _G.SolarSettings.AutoLoad = not _G.SolarSettings.AutoLoad
@@ -1529,7 +1677,7 @@ task.spawn(function()
     end)
     updateAutoLoadUI()
 
-    makeBtn("Save Config", 3, Color3.fromRGB(0, 150, 255), function()
+    makeBtn("Save Config", 8, Color3.fromRGB(0, 150, 255), function()
         if _G.SolarSettings.ConfigName ~= "" then
             writefile("SolarHub_Configs/" .. _G.SolarSettings.ConfigName .. ".json", HttpService:JSONEncode(_G.SolarSettings))
             if _G.SolarSettings.AutoLoad then
@@ -1547,7 +1695,19 @@ task.spawn(function()
                 for k, v in pairs(data) do
                     _G.SolarSettings[k] = v
                 end
+                
+                nameBox.Text = _G.SolarSettings.NameInput or ""
+                lvlBox.Text = _G.SolarSettings.LevelInput or ""
+                streakBox.Text = _G.SolarSettings.WinStreakInput or ""
                 configBox.Text = _G.SolarSettings.ConfigName or ""
+                rankBtn.Text = "Rank: " .. (_G.SolarSettings.RankInput or "Bronze")
+                
+                for i, r in ipairs(ranks) do
+                    if r == _G.SolarSettings.RankInput then
+                        rIdx = i
+                        break
+                    end
+                end
                 
                 if isfile("SolarHub_Configs/autoload.txt") and readfile("SolarHub_Configs/autoload.txt") == name then
                     _G.SolarSettings.AutoLoad = true
@@ -1555,21 +1715,17 @@ task.spawn(function()
                     _G.SolarSettings.AutoLoad = false
                 end
                 updateAutoLoadUI()
-                
-                if _G.OnSolarConfigLoaded then
-                    _G.OnSolarConfigLoaded()
-                end
             end
         end
     end
 
-    makeBtn("Load Config", 4, Color3.fromRGB(0, 255, 100), function()
+    makeBtn("Load Config", 9, Color3.fromRGB(0, 255, 100), function()
         if _G.SolarSettings.ConfigName ~= "" then
             loadConfig(_G.SolarSettings.ConfigName)
         end
     end)
 
-    makeBtn("Delete Config", 5, Color3.fromRGB(255, 50, 50), function()
+    makeBtn("Delete Config", 10, Color3.fromRGB(255, 50, 50), function()
         if _G.SolarSettings.ConfigName ~= "" then
             if isfile("SolarHub_Configs/" .. _G.SolarSettings.ConfigName .. ".json") then
                 delfile("SolarHub_Configs/" .. _G.SolarSettings.ConfigName .. ".json")
