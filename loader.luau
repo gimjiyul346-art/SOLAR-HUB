@@ -1407,9 +1407,6 @@ end)
 
 local ChangerSection = _G.AddSection(Tabs["character"].Right, "Changer")
 
-local addBox = _G.AddTextBox or _G.AddInput or _G.CreateTextBox or _G.CreateInput
-local addDrop = _G.AddDropdown or _G.CreateDropdown or _G.Dropdown
-
 local fakeName = ""
 local nameToggle = false
 _G.AddToggle(ChangerSection, "Name Changer", false, function(state)
@@ -1430,12 +1427,6 @@ _G.AddToggle(ChangerSection, "Name Changer", false, function(state)
         end
     end
 end)
-
-if addBox then
-    addBox(ChangerSection, "Desired Name", "원하는 이름 입력", function(value)
-        fakeName = value
-    end)
-end
 
 local fakeLevel = ""
 local levelToggle = false
@@ -1462,28 +1453,6 @@ _G.AddToggle(ChangerSection, "Level Changer", false, function(state)
     end
 end)
 
-if addBox then
-    addBox(ChangerSection, "Desired Level", "원하는 레벨 입력", function(value)
-        fakeLevel = value
-    end)
-end
-
-if addDrop then
-    addDrop(ChangerSection, "Rank Changer", {"Bronze", "Silver", "Gold", "Diamond", "Master", "Top 100"}, function(selected)
-        local lp = game:GetService("Players").LocalPlayer
-        if lp:FindFirstChild("PlayerGui") then
-            for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
-                if ui:IsA("TextLabel") or ui:IsA("TextButton") then
-                    local name = ui.Name:lower()
-                    if name:find("tier") or name:find("rankname") then
-                        ui.Text = selected
-                    end
-                end
-            end
-        end
-    end)
-end
-
 local fakeStreak = ""
 local streakToggle = false
 _G.AddToggle(ChangerSection, "Win Streak Changer", false, function(state)
@@ -1509,8 +1478,110 @@ _G.AddToggle(ChangerSection, "Win Streak Changer", false, function(state)
     end
 end)
 
-if addBox then
-    addBox(ChangerSection, "Desired Win Streak", "원하는 연승 입력", function(value)
-        fakeStreak = value
+task.spawn(function()
+    local CoreGui = game:GetService("CoreGui")
+    if CoreGui:FindFirstChild("SolarInputPanel") then
+        CoreGui.SolarInputPanel:Destroy()
+    end
+
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "SolarInputPanel"
+    sg.ResetOnSpawn = false
+    sg.Parent = CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 190, 0, 185)
+    frame.Position = UDim2.new(0.1, 0, 0.4, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    frame.BorderColor3 = Color3.fromRGB(255, 0, 55)
+    frame.BorderSizePixel = 1
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = sg
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 25)
+    title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    title.BorderColor3 = Color3.fromRGB(255, 0, 55)
+    title.BorderSizePixel = 1
+    title.Text = "CHANGER INPUTS (Drag)"
+    title.TextColor3 = Color3.fromRGB(255, 0, 55)
+    title.Font = Enum.Font.Code
+    title.TextSize = 12
+    title.Parent = frame
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 6)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = frame
+
+    local pad = Instance.new("Frame")
+    pad.Size = UDim2.new(1, 0, 0, 25)
+    pad.BackgroundTransparency = 1
+    pad.LayoutOrder = 0
+    pad.Parent = frame
+
+    local function makeBox(placeholder, order, callback)
+        local box = Instance.new("TextBox")
+        box.Size = UDim2.new(0, 170, 0, 30)
+        box.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+        box.BorderColor3 = Color3.fromRGB(40, 40, 40)
+        box.BorderSizePixel = 1
+        box.TextColor3 = Color3.fromRGB(255, 255, 255)
+        box.PlaceholderText = placeholder
+        box.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+        box.Font = Enum.Font.Code
+        box.TextSize = 13
+        box.Text = ""
+        box.LayoutOrder = order
+        box.Parent = frame
+
+        box:GetPropertyChangedSignal("Text"):Connect(function()
+            callback(box.Text)
+        end)
+        box.Focused:Connect(function()
+            box.BorderColor3 = Color3.fromRGB(255, 0, 55)
+        end)
+        box.FocusLost:Connect(function()
+            box.BorderColor3 = Color3.fromRGB(40, 40, 40)
+        end)
+    end
+
+    makeBox("Name Input...", 1, function(val) fakeName = val end)
+    makeBox("Level Input...", 2, function(val) fakeLevel = val end)
+    makeBox("Win Streak Input...", 4, function(val) fakeStreak = val end)
+
+    local rankBtn = Instance.new("TextButton")
+    rankBtn.Size = UDim2.new(0, 170, 0, 30)
+    rankBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    rankBtn.BorderColor3 = Color3.fromRGB(255, 0, 55)
+    rankBtn.BorderSizePixel = 1
+    rankBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    rankBtn.Font = Enum.Font.Code
+    rankBtn.TextSize = 13
+    rankBtn.Text = "Rank: Click to Cycle"
+    rankBtn.LayoutOrder = 3
+    rankBtn.Parent = frame
+
+    local ranks = {"Bronze", "Silver", "Gold", "Diamond", "Master", "Top 100"}
+    local rIdx = 0
+    rankBtn.MouseButton1Click:Connect(function()
+        rIdx = rIdx + 1
+        if rIdx > #ranks then rIdx = 1 end
+        local selected = ranks[rIdx]
+        rankBtn.Text = "Rank: " .. selected
+        
+        local lp = game:GetService("Players").LocalPlayer
+        if lp:FindFirstChild("PlayerGui") then
+            for _, ui in pairs(lp.PlayerGui:GetDescendants()) do
+                if ui:IsA("TextLabel") or ui:IsA("TextButton") then
+                    local name = ui.Name:lower()
+                    if name:find("tier") or name:find("rankname") then
+                        ui.Text = selected
+                    end
+                end
+            end
+        end
     end)
-end
+end)
