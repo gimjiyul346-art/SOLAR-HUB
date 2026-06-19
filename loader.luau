@@ -1405,7 +1405,7 @@ task.spawn(function()
     end
 end)
 
--- ==================== ARCADE SECTION (MISC 탭에 추가) ====================
+-- ==================== ARCADE SECTION (MISC 탭에 붙이세요) ====================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -1440,6 +1440,26 @@ end
 
 if LocalPlayer.Character then ProtectCharacter(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(ProtectCharacter)
+
+-- ==================== AUTO RESPAWN ====================
+LocalPlayer.CharacterAdded:Connect(function(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    humanoid.Died:Connect(function()
+        if not autoRespawn then return end
+        task.spawn(function()
+            while autoRespawn do
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                    break
+                end
+                keypress(0x20)
+                task.wait(0.1)
+                keyrelease(0x20)
+                task.wait(0.1)
+            end
+        end)
+    end)
+end)
 
 -- ==================== ARCADE RAGE BOT ====================
 local target = nil
@@ -1514,7 +1534,7 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
--- ==================== AUTO COLLECT ====================
+-- ==================== AUTO HEALTH + AUTO AMMO ====================
 local t = 0
 RunService.RenderStepped:Connect(function(dt)
     local character = LocalPlayer.Character
@@ -1532,15 +1552,16 @@ RunService.RenderStepped:Connect(function(dt)
                 obj.CFrame = CFrame.new(hrp.Position + Vector3.new(0, bounce, 0))
                 obj.Transparency = 1
                 for _, child in pairs(obj:GetDescendants()) do
-                    pcall(function()
-                        if child:IsA("BasePart") or child:IsA("MeshPart") or child:IsA("SpecialMesh") then
-                            child.Transparency = 1
-                        end
-                    end)
+                    if child:IsA("BasePart") or child:IsA("UnionOperation") or child:IsA("MeshPart") or child:IsA("SpecialMesh") then
+                        pcall(function() child.Transparency = 1 end)
+                    end
+                    if child:IsA("BillboardGui") or child:IsA("SurfaceGui") or child:IsA("ParticleEmitter") or child:IsA("SelectionBox") then
+                        pcall(function() child.Enabled = false end)
+                    end
                 end
             end
         end
     end
 end)
 
-print("✅ Arcade Section 추가됨 (MISC 탭)")
+print("✅ Arcade Section (Auto Health, Auto Ammo, Auto Respawn, Arcade Rage Bot) 추가 완료")
